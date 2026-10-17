@@ -74,6 +74,69 @@ function participantKey(roomCode: string) {
   return `duoxing:participant:${roomCode.toUpperCase()}`;
 }
 
+function simulatedParticipantKey(roomCode: string) {
+  return `duoxing:dev-participant:${roomCode.toUpperCase()}`;
+}
+
+function isDevSimulationEnabled() {
+  return (
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('dev') === 'true'
+  );
+}
+
+function randomChoice<T>(choices: readonly T[]): T {
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function makeRandomPreferences(participantId: string): PreferenceSubmission {
+  const shuffledCuisines = [...cuisines];
+  for (let index = shuffledCuisines.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffledCuisines[index], shuffledCuisines[swapIndex]] = [
+      shuffledCuisines[swapIndex],
+      shuffledCuisines[index],
+    ];
+  }
+
+  const selectedCuisines = shuffledCuisines.slice(
+    0,
+    3 + Math.floor(Math.random() * 3),
+  );
+  const attitudes: CuisineAttitudeType[] = [
+    CuisineAttitude.love,
+    CuisineAttitude.okay,
+    CuisineAttitude.avoid,
+  ];
+
+  return {
+    participantId,
+    nickname: '模拟参与者',
+    budget: randomChoice([
+      BudgetLevel.NUMBER_1,
+      BudgetLevel.NUMBER_2,
+      BudgetLevel.NUMBER_3,
+      BudgetLevel.unlimited,
+    ]),
+    distance: randomChoice([
+      DistanceLimit.NUMBER_1,
+      DistanceLimit.NUMBER_3,
+      DistanceLimit.NUMBER_5,
+      DistanceLimit.unlimited,
+    ]),
+    cuisinePreferences: selectedCuisines.map((cuisine) => ({
+      cuisine,
+      attitude: randomChoice(attitudes),
+    })),
+    spice: randomChoice([
+      SpicePreference.none,
+      SpicePreference.mild,
+      SpicePreference.any,
+    ]),
+  };
+}
+
 function errorMessage(error: unknown, fallback: string) {
   if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
     return error.message;
@@ -121,6 +184,7 @@ function Header({ back }: { back?: () => void }) {
 
 function Home() {
   const [, setLocation] = useLocation();
+  const devSimulationEnabled = isDevSimulationEnabled();
   const [nickname, setNickname] = useState('');
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'home' | 'join'>('home');
@@ -131,7 +195,9 @@ function Home() {
     createRoom.mutate({ data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
       onSuccess: (room) => {
         localStorage.setItem(participantKey(room.roomCode), room.participantId);
-        setLocation(`/room/${room.roomCode}`);
+        setLocation(
+          `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
+        );
       },
     });
   };
@@ -143,7 +209,9 @@ function Home() {
     joinRoom.mutate({ roomCode: normalized, data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
       onSuccess: (room) => {
         localStorage.setItem(participantKey(room.roomCode), room.participantId);
-        setLocation(`/room/${room.roomCode}`);
+        setLocation(
+          `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
+        );
       },
     });
   };
@@ -257,6 +325,7 @@ function RoomPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [participantId, setParticipantId] = useState(() => typeof window === 'undefined' ? '' : localStorage.getItem(participantKey(roomCode)) || '');
+  const [devParticipantId, setDevParticipantId] = useState(() => typeof window === 'undefined' ? '' : localStorage.getItem(simulatedParticipantKey(roomCode)) || '');
   const [nickname, setNickname] = useState('');
   const [joinNickname, setJoinNickname] = useState('');
   const [budget, setBudget] = useState<string>(BudgetLevel.unlimited);
@@ -266,9 +335,14 @@ function RoomPage() {
   const [copied, setCopied] = useState(false);
   const [joinError, setJoinError] = useState('');
   const [roomError, setRoomError] = useState('');
+  const [simulationPending, setSimulationPending] = useState(false);
+  const devSimulationEnabled = isDevSimulationEnabled();
 
   useEffect(() => {
     setParticipantId(localStorage.getItem(participantKey(roomCode)) || '');
+    setDevParticipantId(
+      localStorage.getItem(simulatedParticipantKey(roomCode)) || '',
+    );
   }, [roomCode]);
 
   const roomQuery = useGetRoom(roomCode, participantId, {
@@ -323,6 +397,78 @@ function RoomPage() {
     submitPreferences.mutate({ roomCode, data: payload }, {
       onError: (error) => setRoomError(errorMessage(error, '保存失败，请检查网络后再试。')),
     });
+  };
+
+  const submitAsSimulatedParticipant = (virtualParticipantId: string) => {
+    if (virtualParticipantId === participantId) {
+      setSimulationPending(false);
+      setRoomError('模拟参与者不能复用你的参与者身份。');
+      return;
+    }
+
+    localStorage.setItem(
+      simulatedParticipantKey(roomCode),
+      virtualParticipantId,
+    );
+    setDevParticipantId(virtualParticipantId);
+    submitPreferences.mutate(
+      {
+        roomCode,
+        data: makeRandomPreferences(virtualParticipantId),
+      },
+      {
+        onSuccess: () => {
+          setSimulationPending(false);
+          void queryClient.invalidateQueries({
+            queryKey: getGetRoomQueryKey(roomCode, participantId),
+          });
+        },
+        onError: (error) => {
+          setSimulationPending(false);
+          setRoomError(
+            errorMessage(error, '模拟参与者提交失败，请稍后再试。'),
+          );
+        },
+      },
+    );
+  };
+
+  const simulateSecondParticipant = () => {
+    if (
+      !devSimulationEnabled ||
+      !room?.hasSubmitted ||
+      room.state === 'revealed' ||
+      simulationPending
+    ) {
+      return;
+    }
+
+    setRoomError('');
+    setSimulationPending(true);
+    if (devParticipantId) {
+      submitAsSimulatedParticipant(devParticipantId);
+      return;
+    }
+
+    joinRoom.mutate(
+      { roomCode, data: { nickname: '模拟参与者' } },
+      {
+        onSuccess: (virtualParticipant) => {
+          if (virtualParticipant.participantId === participantId) {
+            setSimulationPending(false);
+            setRoomError('模拟参与者不能复用你的参与者身份。');
+            return;
+          }
+          submitAsSimulatedParticipant(virtualParticipant.participantId);
+        },
+        onError: (error) => {
+          setSimulationPending(false);
+          setRoomError(
+            errorMessage(error, '无法创建模拟参与者，请确认房间仍有空位。'),
+          );
+        },
+      },
+    );
   };
 
   const copyInvite = async () => {
@@ -428,7 +574,16 @@ function RoomPage() {
             {revealed ? (
               <Results room={room} onAgain={startAgain} onHome={() => setLocation('/')} busy={resetRoom.isPending} />
             ) : mySubmitted || room.state === 'waiting_for_partner' || room.state === 'waiting_for_other' ? (
-              <Waiting roomCode={roomCode} onCopy={copyInvite} copied={copied} state={room.state} />
+              <Waiting
+                roomCode={roomCode}
+                onCopy={copyInvite}
+                copied={copied}
+                state={room.state}
+                devSimulationEnabled={devSimulationEnabled}
+                canSimulate={room.participantCount < room.requiredParticipantCount || Boolean(devParticipantId)}
+                simulationPending={simulationPending}
+                onSimulate={simulateSecondParticipant}
+              />
             ) : (
               <PreferenceForm
                 nickname={nickname}
@@ -535,7 +690,16 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
   );
 }
 
-function Waiting({ roomCode, onCopy, copied, state }: { roomCode: string; onCopy: () => void; copied: boolean; state: string }) {
+function Waiting({ roomCode, onCopy, copied, state, devSimulationEnabled, canSimulate, simulationPending, onSimulate }: {
+  roomCode: string;
+  onCopy: () => void;
+  copied: boolean;
+  state: string;
+  devSimulationEnabled: boolean;
+  canSimulate: boolean;
+  simulationPending: boolean;
+  onSimulate: () => void;
+}) {
   return (
     <section className="surface page-enter overflow-hidden rounded-[28px]" data-testid="state-waiting">
       <div className="relative flex min-h-[214px] flex-col items-center justify-center overflow-hidden bg-[#fff4dd] px-6 py-7 text-center">
@@ -560,6 +724,22 @@ function Waiting({ roomCode, onCopy, copied, state }: { roomCode: string; onCopy
           {copied ? <CheckCircle2 size={16} className="text-[#60946d]" /> : <Link2 size={16} />}
           {copied ? '链接已复制' : '复制邀请链接'}
         </button>
+        {devSimulationEnabled && canSimulate && (
+          <button
+            type="button"
+            onClick={onSimulate}
+            disabled={simulationPending}
+            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#dfbd8a] bg-[#fffaf0] text-[12px] font-semibold text-[#987345] disabled:cursor-wait disabled:opacity-60"
+            data-testid="button-simulate-participant"
+          >
+            {simulationPending ? (
+              <LoaderCircle size={15} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            {simulationPending ? '正在创建并提交…' : '模拟第二个参与者'}
+          </button>
+        )}
         <p className="mt-3 text-center text-[10px] text-[#aea28f]">这一页只显示你的进度，不会显示任何人的口味。</p>
       </div>
     </section>
