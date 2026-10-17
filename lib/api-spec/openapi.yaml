@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: rooms
+    description: Anonymous shared meal-decision rooms
 paths:
   /healthz:
     get:
@@ -24,6 +26,163 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /rooms:
+    post:
+      operationId: createRoom
+      tags: [rooms]
+      summary: Create a room and join as its first participant
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomCreateInput"
+      responses:
+        "201":
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomParticipantResponse"
+  /rooms/{roomCode}/participants/{participantId}:
+    get:
+      operationId: getRoom
+      tags: [rooms]
+      summary: Get participant-specific progress without revealing unsubmitted preferences
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 6
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current room state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStatus"
+        "404":
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /rooms/{roomCode}/join:
+    post:
+      operationId: joinRoom
+      tags: [rooms]
+      summary: Join a room as an anonymous participant
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 6
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantInput"
+      responses:
+        "201":
+          description: Joined room
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomParticipantResponse"
+        "404":
+          description: Room not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Room is full or already revealed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /rooms/{roomCode}/preferences:
+    put:
+      operationId: submitPreferences
+      tags: [rooms]
+      summary: Save a participant's private preferences
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreferenceSubmission"
+      responses:
+        "200":
+          description: Preferences saved and current room state returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStatus"
+        "400":
+          description: Invalid preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Room or participant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /rooms/{roomCode}/reset:
+    post:
+      operationId: resetRoom
+      tags: [rooms]
+      summary: Clear round preferences and start another round
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoomResetInput"
+      responses:
+        "200":
+          description: Room reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStatus"
+        "404":
+          description: Room or participant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +192,121 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    RoomCreateInput:
+      type: object
+      properties:
+        nickname:
+          type: string
+          maxLength: 24
+    ParticipantInput:
+      type: object
+      properties:
+        nickname:
+          type: string
+          maxLength: 24
+    RoomParticipantResponse:
+      type: object
+      properties:
+        roomCode:
+          type: string
+        participantId:
+          type: string
+      required: [roomCode, participantId]
+    BudgetLevel:
+      type: string
+      enum: ["1", "2", "3", unlimited]
+    DistanceLimit:
+      type: string
+      enum: ["1", "3", "5", unlimited]
+    Cuisine:
+      type: string
+      enum: [中餐, 火锅, 日料, 韩餐, 西餐, 东南亚, 烧烤, 小吃, 咖啡 / 甜品]
+    CuisineAttitude:
+      type: string
+      enum: [love, okay, avoid]
+    SpicePreference:
+      type: string
+      enum: [none, mild, any]
+    CuisinePreference:
+      type: object
+      properties:
+        cuisine:
+          $ref: "#/components/schemas/Cuisine"
+        attitude:
+          $ref: "#/components/schemas/CuisineAttitude"
+      required: [cuisine, attitude]
+    PreferenceSubmission:
+      type: object
+      properties:
+        participantId:
+          type: string
+        nickname:
+          type: string
+          maxLength: 24
+        budget:
+          $ref: "#/components/schemas/BudgetLevel"
+        distance:
+          $ref: "#/components/schemas/DistanceLimit"
+        cuisinePreferences:
+          type: array
+          items:
+            $ref: "#/components/schemas/CuisinePreference"
+        spice:
+          $ref: "#/components/schemas/SpicePreference"
+      required: [participantId, budget, distance, cuisinePreferences, spice]
+    RoomResetInput:
+      type: object
+      properties:
+        participantId:
+          type: string
+      required: [participantId]
+    RestaurantRecommendation:
+      type: object
+      properties:
+        name:
+          type: string
+        cuisine:
+          $ref: "#/components/schemas/Cuisine"
+        priceLevel:
+          type: integer
+        distance:
+          type: number
+        spicyLevel:
+          type: integer
+        matchPercent:
+          type: integer
+          minimum: 0
+          maximum: 100
+        reasons:
+          type: array
+          items:
+            type: string
+      required: [name, cuisine, priceLevel, distance, spicyLevel, matchPercent, reasons]
+    RoomStatus:
+      type: object
+      properties:
+        roomCode:
+          type: string
+        participantId:
+          type: ["string", "null"]
+        participantCount:
+          type: integer
+        requiredParticipantCount:
+          type: integer
+        hasSubmitted:
+          type: boolean
+        state:
+          type: string
+          enum: [choosing, waiting_for_partner, waiting_for_other, revealed]
+        recommendations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestaurantRecommendation"
+      required: [roomCode, participantId, participantCount, requiredParticipantCount, hasSubmitted, state, recommendations]
 
