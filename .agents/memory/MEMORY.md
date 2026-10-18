@@ -1,3 +1,4 @@
 - [都行 MVP 范围](duoxing-mvp-scope.md) — 保持匿名双人盲选和本地示例餐厅，不扩大到用户明确排除的功能。
 - [双用户验收证据](two-user-acceptance.md) — 加入人数与提交人数必须分别验证；后台人数正确不能替代界面证据。
 - [浏览器运行环境](browser-runtime.md) — Nix 下下载版 Chromium 可能缺少系统库，优先使用环境提供的兼容浏览器。
+- [隐私与错误排查](private-error-observability.md) — 不为排错恢复原始请求错误文本；数据库和解析器错误可能携带完整私人输入。

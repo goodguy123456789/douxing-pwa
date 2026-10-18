@@ -5,9 +5,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 const dir = await mkdtemp(join(tmpdir(), "duoxing-tests-"));
 try {
-  const outfile = join(dir, "match.test.mjs");
-  await build({ entryPoints: ["tests/match.test.ts"], outfile, platform: "node", format: "esm", bundle: true });
-  const result = spawnSync(process.execPath, ["--test", outfile], { stdio: "inherit" });
+  const outfiles = [];
+  for (const name of ["match", "http-logging"]) {
+    const outfile = join(dir, `${name}.test.cjs`);
+    await build({ entryPoints: [`tests/${name}.test.ts`], outfile, platform: "node", format: "cjs", bundle: true });
+    outfiles.push(outfile);
+  }
+  const result = spawnSync(process.execPath, ["--test", ...outfiles], { stdio: "inherit" });
   process.exitCode = result.status ?? 1;
 } finally {
   await rm(dir, { recursive: true, force: true });
