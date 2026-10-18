@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "pjabpoMKK2ytpcd2RIW8q"
+uri = "file://docs/acceptance-v1.2.1.md"
+type = "text"
+title = "都行 v1.2.1 最终验收报告"
+description = "9组真实双用户浏览器验收、2项必要UI修复、51个现有测试及发布判断，含证据限制。"
+logical_id = "d77ec958-c49c-4fd7-b375-ce43db1db496"
+content_hash = "sha256:c909c2bf29b84b5a32ba9af4e86da16905405955ec564ca3cefe54abeba59575"
+size = 6932
+mtime_ms = 1792293494051
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/d77ec958-c49c-4fd7-b375-ce43db1db496/6e3f11c0-0c01-4243-a881-6f4f27376722"
+storage_version_token = "1792293519657851"
+content_type = "text/markdown"

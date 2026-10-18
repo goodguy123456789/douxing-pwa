@@ -616,6 +616,9 @@ function RoomPage() {
                     ? '双方已完成选择'
                     : `${room.submittedCount}/${room.requiredParticipantCount} 位已提交`}
                 </div>
+                <p className="text-[11px] font-medium text-[#8d7456]" data-testid="text-room-occupancy">
+                  已加入 {room.participantCount}/{room.requiredParticipantCount}
+                </p>
               </div>
             </div>
             {roomError && <div className="mb-4 rounded-xl border border-[#f0c7b7] bg-[#fff1eb] px-4 py-3 text-xs text-[#a94e3d]" role="alert" data-testid="error-room-action">
@@ -733,7 +736,7 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
                       if (current === setting.value) delete next[cuisine];
                       else next[cuisine] = setting.value;
                       setAttitudes(next);
-                    }} aria-pressed={current === setting.value} className={`rounded-[9px] border px-2.5 py-1.5 text-[10px] font-semibold transition ${current === setting.value ? setting.selected : 'border-transparent bg-transparent text-[#8c8173] hover:bg-[#e8e1d6]'}`} data-testid={`choice-cuisine-${cuisine}-${setting.value}`}>
+                    }} aria-pressed={current === setting.value} className={`min-h-11 min-w-11 rounded-[9px] border px-2.5 py-1.5 text-[10px] font-semibold transition ${current === setting.value ? setting.selected : 'border-transparent bg-transparent text-[#8c8173] hover:bg-[#e8e1d6]'}`} data-testid={`choice-cuisine-${cuisine}-${setting.value}`}>
                       {setting.label}
                     </button>
                   ))}
