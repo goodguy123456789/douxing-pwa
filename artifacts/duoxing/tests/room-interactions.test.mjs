@@ -13,6 +13,16 @@ test('null and malformed errors use safe fallback', () => {
   for (const value of [null, undefined, {}, { data: { error: 5 } }]) assert.equal(errorMessage(value, '保存失败'), '保存失败');
 });
 test('ordinary Error still provides useful message', () => assert.equal(errorMessage(new Error('网络已断开'), '保存失败'), '网络已断开'));
+test('network and unstructured HTTP errors use the Chinese action fallback', () => {
+  for (const error of [
+    new TypeError('Failed to fetch'),
+    new TypeError('NetworkError when attempting to fetch resource.'),
+    { name: 'ApiError', message: 'HTTP 503 POST /api/rooms/ABCD/reset', data: '<h1>Service Unavailable</h1>' },
+    { name: 'ResponseParseError', message: 'Unexpected token in JSON response' },
+  ]) {
+    assert.equal(errorMessage(error, '暂时无法开启新一轮，请稍后再试。'), '暂时无法开启新一轮，请稍后再试。');
+  }
+});
 test('reset disclosure explains private saved drafts and both confirmations', () => {
   for (const word of ['双方', '已保存', '仅本人可见', '尚未提交', '旧结果会立即失效', '重新确认', '确定继续']) assert.ok(RESET_WARNING.includes(word));
   assert.doesNotMatch(RESET_WARNING, /清除双方.*偏好|重新填写/);

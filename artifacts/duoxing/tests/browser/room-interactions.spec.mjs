@@ -144,6 +144,105 @@ test('取消重选不发送 reset；确认重选立即移除旧结果，并同�
   }
 });
 
+for (const failure of ['network', 'server']) {
+  test(`重选 ${failure} 失败保留双方结果与偏好，解除忙碌后重试仅开启一轮并同步`, async ({ browser, request, baseURL }) => {
+    const room = await revealedRoom(request);
+    const pages = [];
+    let releaseFailure;
+    const failureGate = new Promise(resolve => { releaseFailure = resolve; });
+    try {
+      const a = await openParticipant(browser, baseURL, room.a.roomCode, room.a.participantId);
+      pages.push(a);
+      const b = await openParticipant(browser, baseURL, room.a.roomCode, room.b.participantId);
+      pages.push(b);
+      for (const page of pages) await expect(page.getByTestId('state-results')).toBeVisible();
+      const before = await Promise.all([room.status(room.a.participantId), room.status(room.b.participantId)]);
+      expect(before[0].recommendations.length).toBeGreaterThan(0);
+      expect(before[0].ownDraft).toEqual(firstDraft);
+      expect(before[1].ownDraft).toEqual(secondDraft);
+      const resultText = await Promise.all(pages.map(page => page.getByTestId('state-results').innerText()));
+
+      let resetRequests = 0;
+      a.on('request', req => {
+        if (req.method() === 'POST' && new URL(req.url()).pathname === `${room.path}/reset`) resetRequests++;
+      });
+      // Hold only the first reset so pending/disabled is deterministic. Neither
+      // failure reaches the API; all reads and the later retry use the real API.
+      const resetUrl = `**${room.path}/reset`;
+      await a.route(resetUrl, async route => {
+        await failureGate;
+        if (failure === 'network') await route.abort('internetdisconnected');
+        else await route.fulfill({
+          status: 503, contentType: 'text/html', body: '<h1>Service Unavailable</h1>',
+        });
+      }, { times: 1 });
+      const reselect = a.getByTestId('button-reselect-preferences');
+      const confirmReset = async () => {
+        const confirmed = a.waitForEvent('dialog').then(async dialog => {
+          expect(dialog.type()).toBe('confirm');
+          expect(dialog.message()).toBe(RESET_WARNING);
+          await dialog.accept();
+        });
+        await reselect.click();
+        await confirmed;
+      };
+      await confirmReset();
+      await expect(reselect).toBeDisabled();
+      await expect(reselect).toHaveText('正在重新选偏好…');
+      for (const page of pages) await expect(page.getByTestId('state-results')).toBeVisible();
+      releaseFailure();
+
+      const alert = a.getByTestId('error-room-action');
+      await expect(alert).toHaveText('暂时无法开启新一轮，请稍后再试。');
+      await expect(alert).not.toContainText(/Failed to fetch|HTTP|POST|\/api\/|Service Unavailable|TypeError/i);
+      await expect(reselect).toBeEnabled();
+      await expect(reselect).toHaveText('重新选偏好');
+      await onScreen(a, alert);
+      // A real polling cycle on each browser must not wipe the old result or
+      // silently retry a failed mutation.
+      await Promise.all(pages.map(page => page.waitForResponse(response => isStatus(response, room.path))));
+      expect(resetRequests).toBe(1);
+      for (const [index, id] of [room.a.participantId, room.b.participantId].entries()) {
+        const status = await room.status(id);
+        for (const key of ['preferenceRevision', 'submittedCount', 'hasSubmitted', 'ownDraft', 'recommendations', 'state']) {
+          expect(status[key]).toEqual(before[index][key]);
+        }
+        await expect(pages[index].getByTestId('state-results')).toHaveText(resultText[index], { useInnerText: true });
+        await expect(pages[index].getByTestId('form-preferences')).toHaveCount(0);
+      }
+
+      // Recovery: remove fault injection, keep the peer's polling intact, and
+      // block initiator polls so only the successful reset can clear its cache.
+      await a.unroute(resetUrl);
+      await a.route(`**${room.path}/participants/**`, route => route.abort());
+      const resetResponse = a.waitForResponse(response =>
+        response.request().method() === 'POST' && new URL(response.url()).pathname === `${room.path}/reset`);
+      await confirmReset();
+      const response = await resetResponse;
+      expect(response.status()).toBe(200);
+      expect((await response.json()).preferenceRevision).toBe(before[0].preferenceRevision + 1);
+      await expect(a.getByTestId('state-results')).toHaveCount(0, { timeout: 1_500 });
+      await expect(alert).toHaveCount(0);
+      await expect(b.getByTestId('state-results')).toHaveCount(0);
+      await restoredDraft(a, firstDraft);
+      await restoredDraft(b, secondDraft);
+      await b.waitForResponse(res => isStatus(res, room.path));
+      expect(resetRequests).toBe(2); // One failed attempt, one real mutation.
+      for (const [id, draft] of [[room.a.participantId, firstDraft], [room.b.participantId, secondDraft]]) {
+        const status = await room.status(id);
+        expect(status.preferenceRevision).toBe(before[0].preferenceRevision + 1);
+        expect(status.ownDraft).toEqual(draft);
+        expect(status.hasSubmitted).toBe(false);
+        expect(status.submittedCount).toBe(0);
+        expect(status.recommendations).toEqual([]);
+      }
+    } finally {
+      releaseFailure();
+      await Promise.all(pages.map(page => page.context().close()));
+    }
+  });
+}
+
 for (const revision of ['stale', 'missing']) {
   test(`${revision} preferenceRevision：中文刷新提示，刷新保留身份与草稿并提交新版本（402px）`, async ({ browser, request, baseURL }) => {
     const room = await revealedRoom(request);

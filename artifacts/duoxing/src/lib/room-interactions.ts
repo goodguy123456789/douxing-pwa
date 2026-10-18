@@ -8,6 +8,11 @@ export function errorMessage(error: unknown, fallback: string): string {
     && 'error' in error.data && typeof error.data.error === 'string') {
     return error.data.error;
   }
+  // Fetch failures and unstructured gateway responses contain browser/HTTP
+  // diagnostics, not a message intended for the person using the room.
+  if ('name' in error && ['TypeError', 'ApiError', 'ResponseParseError'].includes(String(error.name))) {
+    return fallback;
+  }
   if ('message' in error && typeof error.message === 'string') return error.message;
   return fallback;
 }
