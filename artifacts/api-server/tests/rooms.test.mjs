@@ -106,3 +106,183 @@ test("resubmission preserves the partner draft without preserving their confirma
   assert.equal(current.hasSubmitted, false);
   assert.equal(current.preferenceRevision, 2);
 });
+
+// Start every operation in the same turn, without sleeps or assuming which
+// connection acquires the room lock first. Reverse launch order across runs.
+const raceAttempts = 6;
+function concurrently(operations, attempt) {
+  const ordered = operations.map((operation, index) => ({ operation, index }));
+  if (attempt % 2) ordered.reverse();
+  return Promise.all(ordered.map(async ({ operation, index }) => ({
+    index, response: await operation(),
+  }))).then(results => results.sort((a, b) => a.index - b.index).map(result => result.response));
+}
+const raceDrafts = [
+  { nickname: "并发甲的私有草稿", budget: "unlimited", distance: "unlimited", spice: "any", cuisinePreferences: [{ cuisine: "日料", attitude: "love" }] },
+  { nickname: "并发乙的私有草稿", budget: "3", distance: "unlimited", spice: "any", cuisinePreferences: [{ cuisine: "烧烤", attitude: "love" }] },
+];
+function assertSnapshot(data, id, partnerId, draft, partnerDraft, revision, submittedCount, hasSubmitted) {
+  assert.equal(data.participantId, id);
+  assert.equal(data.participantCount, 2);
+  assert.equal(data.requiredParticipantCount, 2);
+  assert.equal(data.preferenceRevision, revision);
+  assert.equal(data.submittedCount, submittedCount);
+  assert.equal(data.hasSubmitted, hasSubmitted);
+  assert.equal(data.state, submittedCount === 2 ? "revealed" : hasSubmitted ? "waiting_for_other" : "choosing");
+  assert.deepEqual(data.ownDraft, draft);
+  // Neither the partner's bearer credential nor their private nickname/draft
+  // belongs in this participant's response.
+  assert.ok(!JSON.stringify(data).includes(partnerId));
+  assert.ok(!JSON.stringify(data).includes(partnerDraft.nickname));
+  assert.deepEqual(Object.keys(data.ownDraft).sort(), ["budget", "cuisinePreferences", "distance", "nickname", "spice"]);
+  if (submittedCount < 2) {
+    assert.deepEqual(data.recommendations, []);
+    assert.equal(data.candidateCount, 0);
+    assert.equal(data.hasMoreRecommendations, false);
+  }
+}
+async function assertBoth(room, revision, drafts, confirmed) {
+  const ids = [room.a.participantId, room.b.participantId];
+  const responses = await Promise.all(ids.map(id => room.get(id)));
+  const count = confirmed.filter(Boolean).length;
+  responses.forEach(({ status, data }, index) => {
+    assert.equal(status, 200);
+    assertSnapshot(data, ids[index], ids[1 - index], drafts[index], drafts[1 - index], revision, count, confirmed[index]);
+  });
+  const shared = data => ({
+    roomCode: data.roomCode,
+    preferenceRevision: data.preferenceRevision,
+    submittedCount: data.submittedCount,
+    participantCount: data.participantCount,
+    algorithmVersion: data.algorithmVersion,
+    recommendations: data.recommendations,
+    candidateCount: data.candidateCount,
+    hasMoreRecommendations: data.hasMoreRecommendations,
+  });
+  assert.deepEqual(shared(responses[0].data), shared(responses[1].data));
+  return responses.map(response => response.data);
+}
+async function seedRaceRoom() {
+  const room = await setup();
+  assert.equal((await room.submit(room.a.participantId, 1, raceDrafts[0])).status, 200);
+  const revealed = await room.submit(room.b.participantId, 1, raceDrafts[1]);
+  assert.equal(revealed.status, 200);
+  assert.equal(revealed.data.state, "revealed");
+  assert.ok(revealed.data.recommendations.length > 0);
+  return room;
+}
+async function assertStalePair(room, staleRevision, currentRevision, drafts, confirmed, attempt) {
+  const responses = await concurrently([
+    () => room.submit(room.a.participantId, staleRevision, { ...drafts[0], nickname: "不能保存的旧甲", budget: "1" }),
+    () => room.submit(room.b.participantId, staleRevision, { ...drafts[1], nickname: "不能保存的旧乙", spice: "mild" }),
+  ], attempt);
+  for (const response of responses) {
+    assert.equal(response.status, 400);
+    assert.match(response.data.error, /刷新页面/);
+  }
+  await assertBoth(room, currentRevision, drafts, confirmed);
+}
+
+test("concurrent reset and submission follow either serial order without restoring the previous result", async t => {
+  for (const alreadyConfirmed of [false, true]) {
+    for (let attempt = 0; attempt < raceAttempts; attempt++) {
+      await t.test(`${alreadyConfirmed ? "resubmit" : "first confirmation"}, run ${attempt + 1}`, async () => {
+        const room = await seedRaceRoom();
+        // Also exercise a first confirmation racing reset, not only resubmits.
+        if (!alreadyConfirmed) {
+          assert.equal((await request(room.path + "/reset", "POST", { participantId: room.a.participantId })).status, 200);
+          assert.equal((await room.submit(room.a.participantId, 2, raceDrafts[0])).status, 200);
+        }
+        const revision = alreadyConfirmed ? 1 : 2;
+        const edited = { ...raceDrafts[1], nickname: "并发乙更新后的草稿", budget: "2" };
+        const [reset, submission] = await concurrently([
+          () => request(room.path + "/reset", "POST", { participantId: room.a.participantId }),
+          () => room.submit(room.b.participantId, revision, edited),
+        ], attempt);
+        assert.equal(reset.status, 200);
+        assert.ok([200, 400].includes(submission.status));
+        // Submit first: a resubmit advances once, then reset advances once.
+        // Reset first: the old submit is rejected and cannot alter its draft.
+        const nextRevision = revision + 1 + Number(alreadyConfirmed && submission.status === 200);
+        const drafts = [raceDrafts[0], submission.status === 200 ? edited : raceDrafts[1]];
+        assertSnapshot(reset.data, room.a.participantId, room.b.participantId, drafts[0], drafts[1], nextRevision, 0, false);
+        if (submission.status === 200) {
+          // Its post-commit snapshot may precede or follow reset.
+          assert.ok([nextRevision - 1, nextRevision].includes(submission.data.preferenceRevision));
+          const afterReset = submission.data.preferenceRevision === nextRevision;
+          const count = afterReset ? 0 : alreadyConfirmed ? 1 : 2;
+          assertSnapshot(submission.data, room.b.participantId, room.a.participantId, edited, drafts[0], submission.data.preferenceRevision, count, !afterReset);
+        } else {
+          assert.match(submission.data.error, /刷新页面/);
+        }
+        await assertBoth(room, nextRevision, drafts, [false, false]);
+        await assertStalePair(room, revision, nextRevision, drafts, [false, false], attempt);
+        // One current confirmation must still not reuse the partner's old vote.
+        assert.equal((await room.submit(room.a.participantId, nextRevision, drafts[0])).status, 200);
+        await assertBoth(room, nextRevision, drafts, [true, false]);
+        assert.equal((await room.submit(room.b.participantId, nextRevision, drafts[1])).status, 200);
+        await assertBoth(room, nextRevision, drafts, [true, true]);
+      });
+    }
+  }
+});
+
+test("simultaneous confirmations reveal only the current round; simultaneous resubmits cannot count an old vote", async t => {
+  for (let attempt = 0; attempt < raceAttempts; attempt++) {
+    await t.test(`run ${attempt + 1}`, async () => {
+      const room = await seedRaceRoom();
+      assert.equal((await request(room.path + "/reset", "POST", { participantId: room.a.participantId })).status, 200);
+      const drafts = raceDrafts.map((draft, index) => ({ ...draft, nickname: `新一轮私有草稿${index}`, budget: "2" }));
+      const ids = [room.a.participantId, room.b.participantId];
+      const confirmations = await concurrently(ids.map((id, index) => () => room.submit(id, 2, drafts[index])), attempt);
+      confirmations.forEach((response, index) => {
+        assert.equal(response.status, 200);
+        // The read transaction can see its own confirmation or both, but never
+        // the other round or a snapshot with neither confirmation.
+        assert.ok([1, 2].includes(response.data.submittedCount));
+        assertSnapshot(response.data, ids[index], ids[1 - index], drafts[index], drafts[1 - index], 2, response.data.submittedCount, true);
+      });
+      await assertBoth(room, 2, drafts, [true, true]);
+      const edits = drafts.map((draft, index) => ({ ...draft, nickname: `再次修改私有草稿${index}`, budget: "1" }));
+      const resubmissions = await concurrently(ids.map((id, index) => () => room.submit(id, 2, edits[index])), attempt);
+      assert.deepEqual(resubmissions.map(response => response.status).sort(), [200, 400]);
+      const winner = resubmissions.findIndex(response => response.status === 200);
+      const currentDrafts = drafts.map((draft, index) => index === winner ? edits[index] : draft);
+      const confirmed = ids.map((_, index) => index === winner);
+      assertSnapshot(resubmissions[winner].data, ids[winner], ids[1 - winner], currentDrafts[winner], currentDrafts[1 - winner], 3, 1, true);
+      assert.match(resubmissions[1 - winner].data.error, /刷新页面/);
+      await assertBoth(room, 3, currentDrafts, confirmed);
+      await assertStalePair(room, 2, 3, currentDrafts, confirmed, attempt);
+      assert.equal((await room.submit(ids[1 - winner], 3, currentDrafts[1 - winner])).status, 200);
+      await assertBoth(room, 3, currentDrafts, [true, true]);
+    });
+  }
+});
+
+test("duplicate concurrent resets each advance once and never retain previous confirmations", async t => {
+  for (const sameParticipant of [true, false]) {
+    for (let attempt = 0; attempt < raceAttempts; attempt++) {
+      await t.test(`${sameParticipant ? "same participant" : "both participants"}, run ${attempt + 1}`, async () => {
+        const room = await seedRaceRoom();
+        const ids = [room.a.participantId, sameParticipant ? room.a.participantId : room.b.participantId];
+        const resets = await concurrently(ids.map(id => () => request(room.path + "/reset", "POST", { participantId: id })), attempt);
+        resets.forEach((response, index) => {
+          assert.equal(response.status, 200);
+          // Reset is intentionally not idempotent today. Two accepted requests
+          // mean +2, while their later snapshot reads may both report round 3.
+          assert.ok([2, 3].includes(response.data.preferenceRevision));
+          const owner = ids[index] === room.a.participantId ? 0 : 1;
+          assertSnapshot(response.data, ids[index], owner === 0 ? room.b.participantId : room.a.participantId, raceDrafts[owner], raceDrafts[1 - owner], response.data.preferenceRevision, 0, false);
+        });
+        await assertBoth(room, 3, raceDrafts, [false, false]);
+        await assertStalePair(room, 1, 3, raceDrafts, [false, false], attempt);
+        await assertStalePair(room, 2, 3, raceDrafts, [false, false], attempt);
+        assert.equal((await request(room.path + "/recommendations/reroll", "POST", { participantId: room.a.participantId })).status, 409);
+        assert.equal((await room.submit(room.a.participantId, 3, raceDrafts[0])).status, 200);
+        await assertBoth(room, 3, raceDrafts, [true, false]);
+        assert.equal((await room.submit(room.b.participantId, 3, raceDrafts[1])).status, 200);
+        await assertBoth(room, 3, raceDrafts, [true, true]);
+      });
+    }
+  }
+});
