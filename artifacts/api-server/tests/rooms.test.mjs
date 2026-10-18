@@ -7,7 +7,7 @@ async function request(path, method = "GET", body) {
   const id = legacyRead?.[1] ?? body?.participantId;
   const token = credentials.get(id);
   const response = await fetch(base + (legacyRead ? path.replace(/\/participants\/[^/]+$/, "/me") : path), {
-    method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    method, headers: { "Content-Type": "application/json", "X-Duoxing-Auth": "token-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await response.json();
@@ -91,16 +91,16 @@ test("reset keeps distinct private drafts, survives reload reads and needs both 
   assert.deepEqual((await get(a.participantId)).data.ownDraft, edited);
   assert.equal((await get(a.participantId)).data.preferenceRevision, 3);
 });
-test("draft access requires a room-scoped secret participant ID and exposes no partner data", async () => {
+test("draft access requires a room-scoped Bearer token and exposes no partner data", async () => {
   const { a, b, path, submit, get } = await setup();
   const { a: outsider } = await setup();
   await submit(a.participantId, 1, { nickname: "不公开的称呼", cuisinePreferences: [{ cuisine: "烧烤", attitude: "avoid" }] });
   const partner = (await get(b.participantId)).data;
   assert.equal(partner.ownDraft, null);
   assert.doesNotMatch(JSON.stringify(partner), new RegExp(`${a.participantId}|不公开的称呼|烧烤|avoid|updatedAt`));
-  assert.equal((await get(outsider.participantId)).status, 404);
-  assert.equal((await get("not-a-participant")).status, 404);
-  const response = await fetch(base + path + "/participants/" + a.participantId);
+  assert.equal((await get(outsider.participantId)).status, 401);
+  assert.equal((await get("not-a-participant")).status, 401);
+  const response = await fetch(base + path + "/me", { headers: { Authorization: `Bearer ${credentials.get(a.participantId)}` } });
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(Object.keys((await response.json()).ownDraft).sort(), ["budget", "cuisinePreferences", "distance", "nickname", "spice"]);
 });

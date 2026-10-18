@@ -28,3 +28,31 @@ mtime_ms = 1792294998823
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/5edada84-4078-476b-8db4-47e9db75c442/4683f095-e4e4-4c53-b9e0-090cdc659409"
 storage_version_token = "1792295065541931"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "VWNadtHnso-QDaYu8NoGE"
+uri = "file://docs/implementation-v1.2.3.md"
+type = "text"
+title = "都行 v1.2.3 认证升级实施报告"
+description = "开发完成；19项新增认证测试，全套117个测试计数通过。含生产未变更确认、真实双浏览器结果与剩余风险。"
+logical_id = "a78dc493-b4de-452c-a667-0031632c28be"
+content_hash = "sha256:35ef511dd10c4e3d904ea798ff4e944a51ece3f0af6f1386b93a25d773b4c008"
+size = 10737
+mtime_ms = 1792298272650
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/a78dc493-b4de-452c-a667-0031632c28be/dba951b6-4fe8-4d54-b24d-c804ddf8e7c4"
+storage_version_token = "1792298306702213"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "jaUkPuUwUJbSwrfj6leew"
+uri = "file://docs/auth-v1.2.3-operations.md"
+type = "text"
+title = "v1.2.3 迁移、生产切换与回滚清单"
+description = "向后兼容数据库迁移、约24小时暂停窗口、数据库查询门禁、安全回滚及切换前后验收清单；仅方案，未执行生产操作。"
+logical_id = "14aac036-73cb-493b-bec7-73f5927530de"
+content_hash = "sha256:45b1967c48d5803405eb9141efb19aa53b86575469ce6d2667fd5f26a18049cc"
+size = 7977
+mtime_ms = 1792298043542
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/14aac036-73cb-493b-bec7-73f5927530de/bad4bfce-f86d-49a5-81d8-587f338d7a51"
+storage_version_token = "1792298308034047"
+content_type = "text/markdown"

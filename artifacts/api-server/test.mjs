@@ -6,7 +6,7 @@ import { join } from "node:path";
 const dir = await mkdtemp(join(tmpdir(), "duoxing-tests-"));
 try {
   const outfiles = [];
-  const tests = process.argv.includes("--retention")
+  const tests = process.argv.includes("--auth") ? ["participant-auth"] : process.argv.includes("--retention")
     ? ["room-retention"]
     : ["match", "http-logging", "periodic-cleanup"];
   for (const name of tests) {

@@ -16,7 +16,7 @@ async function json(request, url, method = 'GET', data) {
   const id = oldRead?.[1] ?? data?.participantId;
   const token = credentials.get(id);
   const response = await request.fetch(oldRead ? url.replace(/\/participants\/[^/]+$/, '/me') : url, {
-    method, data, headers: token ? { Authorization: `Bearer ${token}` } : {},
+    method, data, headers: { "X-Duoxing-Auth": "token-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   expect(response.ok(), `${method} ${url.replace(/participants\/.*/, 'participants/[private]')}`).toBeTruthy();
   const result = await response.json();

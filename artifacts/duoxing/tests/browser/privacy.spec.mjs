@@ -13,6 +13,8 @@ test('invitation shares only the room code and cannot reveal the inviter private
     });
     const a = await aContext.newPage();
     const b = await bContext.newPage();
+    const urls = [];
+    for (const context of [aContext, bContext]) context.on('request', request => urls.push(request.url()));
     await a.goto('/');
     await a.getByTestId('button-create-room').click();
     await expect(a).toHaveURL(/\/room\/[A-Z0-9]{4}$/);
@@ -61,6 +63,32 @@ test('invitation shares only the room code and cannot reveal the inviter private
     const unauthorized = await status(b, 'not-a-valid-participant');
     expect(unauthorized.status).toBe(401);
     expect(unauthorized.data.ownDraft).toBeUndefined();
+    const aToken = await a.evaluate(({ code, id }) => localStorage.getItem(`duoxing:token:${code}:${id}`), { code, id: aId });
+    const bToken = await b.evaluate(({ code, id }) => localStorage.getItem(`duoxing:token:${code}:${id}`), { code, id: bId });
+    expect(Boolean(aToken && bToken && aToken !== bToken)).toBe(true);
+    expect(invite.includes(aToken) || invite.includes(bToken)).toBe(false);
+    // Complete a real two-browser UI journey, not API-seeded identities.
+    await b.getByTestId('choice-cuisine-日料-okay').click();
+    await b.getByTestId('button-submit-preferences').click();
+    for (const page of [a, b]) await expect(page.getByTestId('state-results')).toBeVisible();
+    const before = await status(a, aId);
+    expect(before.data.submittedCount).toBe(2);
+    expect(before.data.recommendations).toEqual((await status(b, bId)).data.recommendations);
+    await Promise.all([a.reload(), b.reload()]);
+    for (const page of [a, b]) {
+      await expect(page.getByTestId('state-results')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    expect((await status(a, aId)).data.participantCount).toBe(2);
+    expect(urls.some(url => url.includes(aToken) || url.includes(bToken))).toBe(false);
+    expect(urls.some(url => /\/participants\//.test(url))).toBe(false);
+    // Invalid local credentials get a friendly update prompt, not an automatic third join.
+    await b.evaluate(({ code, id }) => localStorage.removeItem(`duoxing:token:${code}:${id}`), { code, id: bId });
+    await b.reload();
+    await expect(b.getByTestId('state-room-error')).toContainText('刷新');
+    await expect(b.getByTestId('button-retry-room')).toHaveText('刷新页面');
+    await expect(b.getByTestId('state-room-error')).not.toContainText(/HTTP|Zod|invalid_type/);
+    expect((await status(a, aId)).data.participantCount).toBe(2);
   } finally {
     await Promise.all([aContext.close(), bContext.close()]);
   }

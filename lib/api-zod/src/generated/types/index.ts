@@ -6,13 +6,17 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './authClientVersionParameter';
+export * from './authenticationRequiredResponse';
 export * from './budgetLevel';
+export * from './clientUpgradeRequiredResponse';
 export * from './cuisine';
 export * from './cuisineAttitude';
 export * from './cuisinePreference';
 export * from './distanceLimit';
 export * from './errorResponse';
 export * from './healthStatus';
+export * from './identityMismatchResponse';
 export * from './participantInput';
 export * from './preferenceSubmission';
 export * from './privatePreferenceDraft';
@@ -24,3 +28,4 @@ export * from './roomResetInput';
 export * from './roomStatus';
 export * from './roomStatusState';
 export * from './spicePreference';
+export * from './upgradePauseResponse';

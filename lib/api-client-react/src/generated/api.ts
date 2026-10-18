@@ -20,15 +20,19 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AuthenticationRequiredResponse,
+  ClientUpgradeRequiredResponse,
   ErrorResponse,
   HealthStatus,
+  IdentityMismatchResponse,
   ParticipantInput,
   PreferenceSubmission,
   RerollRecommendationsInput,
   RoomCreateInput,
   RoomParticipantResponse,
   RoomResetInput,
-  RoomStatus
+  RoomStatus,
+  UpgradePauseResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -178,7 +182,7 @@ return customFetch<RoomParticipantResponse>(getCreateRoomUrl(),
 
 export const getCreateRoomMutationKey = () => ['createRoom'] as const;
 
-export const getCreateRoomMutationOptions = <TError = ErrorType<unknown>,
+export const getCreateRoomMutationOptions = <TError = ErrorType<ClientUpgradeRequiredResponse | UpgradePauseResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoom>>, TError,CreateRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createRoom>>, TError,CreateRoomMutationVariables, TContext> => {
 
@@ -207,13 +211,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateRoomMutationResult = NonNullable<Awaited<ReturnType<typeof createRoom>>>
     export type CreateRoomMutationBody = BodyType<RoomCreateInput> | undefined
-    export type CreateRoomMutationError = ErrorType<unknown>
+    export type CreateRoomMutationError = ErrorType<ClientUpgradeRequiredResponse | UpgradePauseResponse>
     export type CreateRoomMutationVariables = {data?: BodyType<RoomCreateInput>}
 
     /**
  * @summary Create a room and join as its first participant
  */
-export const useCreateRoom = <TError = ErrorType<unknown>,
+export const useCreateRoom = <TError = ErrorType<ClientUpgradeRequiredResponse | UpgradePauseResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRoom>>, TError,CreateRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createRoom>>,
@@ -258,7 +262,7 @@ export const getGetRoomQueryKey = (roomCode: string,) => {
     }
 
 
-export const getGetRoomQueryOptions = <TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(roomCode: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetRoomQueryOptions = <TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<AuthenticationRequiredResponse | ErrorResponse | ClientUpgradeRequiredResponse>>(roomCode: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -277,14 +281,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetRoomQueryResult = NonNullable<Awaited<ReturnType<typeof getRoom>>>
-export type GetRoomQueryError = ErrorType<ErrorResponse>
+export type GetRoomQueryError = ErrorType<AuthenticationRequiredResponse | ErrorResponse | ClientUpgradeRequiredResponse>
 
 
 /**
  * @summary Get progress and only the requesting participant's saved draft
  */
 
-export function useGetRoom<TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(
+export function useGetRoom<TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<AuthenticationRequiredResponse | ErrorResponse | ClientUpgradeRequiredResponse>>(
  roomCode: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -345,7 +349,7 @@ return customFetch<RoomParticipantResponse>(getJoinRoomUrl(roomCode),
 
 export const getJoinRoomMutationKey = () => ['joinRoom'] as const;
 
-export const getJoinRoomMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getJoinRoomMutationOptions = <TError = ErrorType<ErrorResponse | ClientUpgradeRequiredResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinRoom>>, TError,JoinRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof joinRoom>>, TError,JoinRoomMutationVariables, TContext> => {
 
@@ -374,13 +378,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type JoinRoomMutationResult = NonNullable<Awaited<ReturnType<typeof joinRoom>>>
     export type JoinRoomMutationBody = BodyType<ParticipantInput> | undefined
-    export type JoinRoomMutationError = ErrorType<ErrorResponse>
+    export type JoinRoomMutationError = ErrorType<ErrorResponse | ClientUpgradeRequiredResponse>
     export type JoinRoomMutationVariables = {roomCode: string;data?: BodyType<ParticipantInput>}
 
     /**
  * @summary Join a room as an anonymous participant
  */
-export const useJoinRoom = <TError = ErrorType<ErrorResponse>,
+export const useJoinRoom = <TError = ErrorType<ErrorResponse | ClientUpgradeRequiredResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinRoom>>, TError,JoinRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof joinRoom>>,
@@ -434,7 +438,7 @@ return customFetch<RoomStatus>(getSubmitPreferencesUrl(roomCode),
 
 export const getSubmitPreferencesMutationKey = () => ['submitPreferences'] as const;
 
-export const getSubmitPreferencesMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getSubmitPreferencesMutationOptions = <TError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPreferences>>, TError,SubmitPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof submitPreferences>>, TError,SubmitPreferencesMutationVariables, TContext> => {
 
@@ -463,13 +467,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type SubmitPreferencesMutationResult = NonNullable<Awaited<ReturnType<typeof submitPreferences>>>
     export type SubmitPreferencesMutationBody = BodyType<PreferenceSubmission>
-    export type SubmitPreferencesMutationError = ErrorType<ErrorResponse>
+    export type SubmitPreferencesMutationError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>
     export type SubmitPreferencesMutationVariables = {roomCode: string;data: BodyType<PreferenceSubmission>}
 
     /**
  * @summary Save a participant's private preferences
  */
-export const useSubmitPreferences = <TError = ErrorType<ErrorResponse>,
+export const useSubmitPreferences = <TError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPreferences>>, TError,SubmitPreferencesMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof submitPreferences>>,
@@ -523,7 +527,7 @@ return customFetch<RoomStatus>(getResetRoomUrl(roomCode),
 
 export const getResetRoomMutationKey = () => ['resetRoom'] as const;
 
-export const getResetRoomMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getResetRoomMutationOptions = <TError = ErrorType<AuthenticationRequiredResponse | IdentityMismatchResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetRoom>>, TError,ResetRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof resetRoom>>, TError,ResetRoomMutationVariables, TContext> => {
 
@@ -552,13 +556,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type ResetRoomMutationResult = NonNullable<Awaited<ReturnType<typeof resetRoom>>>
     export type ResetRoomMutationBody = BodyType<RoomResetInput>
-    export type ResetRoomMutationError = ErrorType<ErrorResponse>
+    export type ResetRoomMutationError = ErrorType<AuthenticationRequiredResponse | IdentityMismatchResponse | ErrorResponse>
     export type ResetRoomMutationVariables = {roomCode: string;data: BodyType<RoomResetInput>}
 
     /**
  * @summary Keep private drafts, clear both confirmations and invalidate old results
  */
-export const useResetRoom = <TError = ErrorType<ErrorResponse>,
+export const useResetRoom = <TError = ErrorType<AuthenticationRequiredResponse | IdentityMismatchResponse | ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetRoom>>, TError,ResetRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof resetRoom>>,
@@ -612,7 +616,7 @@ return customFetch<RoomStatus>(getRerollRecommendationsUrl(roomCode),
 
 export const getRerollRecommendationsMutationKey = () => ['rerollRecommendations'] as const;
 
-export const getRerollRecommendationsMutationOptions = <TError = ErrorType<ErrorResponse>,
+export const getRerollRecommendationsMutationOptions = <TError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rerollRecommendations>>, TError,RerollRecommendationsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof rerollRecommendations>>, TError,RerollRecommendationsMutationVariables, TContext> => {
 
@@ -641,13 +645,13 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type RerollRecommendationsMutationResult = NonNullable<Awaited<ReturnType<typeof rerollRecommendations>>>
     export type RerollRecommendationsMutationBody = BodyType<RerollRecommendationsInput>
-    export type RerollRecommendationsMutationError = ErrorType<ErrorResponse>
+    export type RerollRecommendationsMutationError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>
     export type RerollRecommendationsMutationVariables = {roomCode: string;data: BodyType<RerollRecommendationsInput>}
 
     /**
  * @summary Show the next set of recommendations without changing preferences
  */
-export const useRerollRecommendations = <TError = ErrorType<ErrorResponse>,
+export const useRerollRecommendations = <TError = ErrorType<ErrorResponse | AuthenticationRequiredResponse | IdentityMismatchResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rerollRecommendations>>, TError,RerollRecommendationsMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rerollRecommendations>>,

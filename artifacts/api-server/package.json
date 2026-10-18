@@ -7,6 +7,7 @@
     "test": "node ./test.mjs",
     "test:api": "node --test ./tests/rooms.test.mjs",
     "test:retention": "node ./test.mjs --retention",
+    "test:auth": "node ./test.mjs --auth",
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",

@@ -164,3 +164,28 @@ export interface RoomStatus {
   recommendations: RestaurantRecommendation[];
 }
 
+/**
+ * Missing, invalid, cross-room or expired participant token; refresh guidance.
+ */
+export type AuthenticationRequiredResponse = ErrorResponse;
+
+/**
+ * The public body identity does not match the authenticated caller.
+ */
+export type IdentityMismatchResponse = ErrorResponse;
+
+/**
+ * Old authentication is retired; reconnect and refresh the cached client.
+ */
+export type ClientUpgradeRequiredResponse = ErrorResponse;
+
+/**
+ * Creation paused during drain; existing rooms remain usable.
+ */
+export type UpgradePauseResponse = ErrorResponse;
+
+/**
+ * Required with value token-v1 in token mode; rejects old cached clients before allocating identities. Not an authentication secret.
+ */
+export type AuthClientVersionParameter = string;
+

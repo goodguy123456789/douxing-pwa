@@ -81,7 +81,7 @@ test("all expired-room API access is rejected before cleanup and cannot alter sa
   let token = "";
   async function request(path: string, method = "GET", body?: unknown) {
     const response = await fetch(base + path, {
-      method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      method, headers: { "Content-Type": "application/json", "X-Duoxing-Auth": "token-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     return { status: response.status, data: await response.json() };

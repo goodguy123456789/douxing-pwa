@@ -31,6 +31,8 @@ paths:
       operationId: createRoom
       tags: [rooms]
       summary: Create a room and join as its first participant
+      parameters:
+        - $ref: "#/components/parameters/AuthClientVersion"
       requestBody:
         required: false
         content:
@@ -38,6 +40,10 @@ paths:
             schema:
               $ref: "#/components/schemas/RoomCreateInput"
       responses:
+        "503":
+          $ref: "#/components/responses/UpgradePause"
+        "426":
+          $ref: "#/components/responses/ClientUpgradeRequired"
         "201":
           description: Room created
           content:
@@ -60,6 +66,10 @@ paths:
             minLength: 4
             maxLength: 6
       responses:
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "426":
+          $ref: "#/components/responses/ClientUpgradeRequired"
         "200":
           description: Current room state
           content:
@@ -78,6 +88,7 @@ paths:
       tags: [rooms]
       summary: Join a room as an anonymous participant
       parameters:
+        - $ref: "#/components/parameters/AuthClientVersion"
         - name: roomCode
           in: path
           required: true
@@ -92,6 +103,8 @@ paths:
             schema:
               $ref: "#/components/schemas/ParticipantInput"
       responses:
+        "426":
+          $ref: "#/components/responses/ClientUpgradeRequired"
         "201":
           description: Joined room
           content:
@@ -131,6 +144,10 @@ paths:
             schema:
               $ref: "#/components/schemas/PreferenceSubmission"
       responses:
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/IdentityMismatch"
         "200":
           description: Preferences saved and current room state returned
           content:
@@ -170,6 +187,10 @@ paths:
             schema:
               $ref: "#/components/schemas/RoomResetInput"
       responses:
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/IdentityMismatch"
         "200":
           description: Room reset
           content:
@@ -203,6 +224,10 @@ paths:
             schema:
               $ref: "#/components/schemas/RerollRecommendationsInput"
       responses:
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/IdentityMismatch"
         "200":
           description: Next recommendation set
           content:
@@ -228,6 +253,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
+  parameters:
+    AuthClientVersion:
+      name: X-Duoxing-Auth
+      in: header
+      required: false
+      description: Required with value token-v1 in token mode; rejects old cached clients before allocating identities. Not an authentication secret.
+      schema:
+        type: string
+  responses:
+    AuthenticationRequired:
+      description: Missing, invalid, cross-room or expired participant token; refresh guidance.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    IdentityMismatch:
+      description: The public body identity does not match the authenticated caller.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ClientUpgradeRequired:
+      description: Old authentication is retired; reconnect and refresh the cached client.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UpgradePause:
+      description: Creation paused during drain; existing rooms remain usable.
+      headers:
+        Retry-After:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   securitySchemes:
     participantBearer:
       type: http

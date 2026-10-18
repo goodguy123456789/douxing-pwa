@@ -370,6 +370,7 @@ function RoomPage() {
   const resetRoom = useResetRoom();
   const rerollRecommendations = useRerollRecommendations();
   const room = roomQuery.data;
+  const needsAuthRefresh = roomQuery.isError && [401, 426].includes(Number((roomQuery.error as { status?: number })?.status));
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
   const hydratedDraft = useRef<string>('');
@@ -595,8 +596,8 @@ function RoomPage() {
           <section className="surface page-enter mt-9 rounded-[28px] p-6 text-center" data-testid="state-room-error">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#fce9df] text-[#bd684e]"><CircleHelp size={25} /></div>
             <h1 className="mt-4 text-xl font-extrabold">房间暂时打不开</h1>
-            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">可能是房间码不对、房间已满，或邀请已经过期。</p>
-            <button type="button" onClick={() => roomQuery.refetch()} className="mt-5 h-11 rounded-xl border border-[#e8dfcf] px-5 text-sm font-bold text-[#6a5d4d]" data-testid="button-retry-room">再试一次</button>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">{errorMessage(roomQuery.error, '可能是房间码不对、房间已满，或邀请已经过期。')}</p>
+            <button type="button" onClick={() => needsAuthRefresh ? window.location.reload() : roomQuery.refetch()} className="mt-5 h-11 rounded-xl border border-[#e8dfcf] px-5 text-sm font-bold text-[#6a5d4d]" data-testid="button-retry-room">{needsAuthRefresh ? '刷新页面' : '再试一次'}</button>
             <button type="button" onClick={() => setLocation('/')} className="mt-3 block w-full text-sm font-semibold text-[#e47f30]" data-testid="button-home-from-error">回到首页</button>
           </section>
         ) : (

@@ -17,8 +17,8 @@ export function issueCredential(mode = authMode()) {
   const participantToken = randomBytes(32).toString("hex");
   return { participantToken, tokenHash: hashToken(participantToken) };
 }
-export async function assertTokenCutoverReady() {
-  const result = await db.execute(sql`
+export async function assertTokenCutoverReady(database: Pick<typeof db, "execute"> = db) {
+  const result = await database.execute(sql`
     SELECT COUNT(DISTINCT r.code)::int AS active_legacy_rooms
     FROM duoxing_rooms r
     JOIN duoxing_participants p ON p.room_code = r.code
@@ -32,16 +32,26 @@ export async function assertTokenCutoverReady() {
 export const authenticateParticipant: RequestHandler = async (req, res, next) => {
   res.set("Cache-Control", "no-store");
   const mode = authMode();
-  if (req.path.endsWith("/join") || req.path === "/rooms") { next(); return; }
-  const match = req.path.match(/^\/rooms\/([a-z0-9]{4,6})\/(me|participants\/[^/]+|preferences|reset|recommendations\/reroll)\/?$/i);
+  let path: string;
+  try { path = decodeURIComponent(req.path); }
+  catch { res.status(400).json({ error: "请求格式不正确，请刷新页面后重试。" }); return; }
+  if (/^\/rooms\/?$/i.test(path) || /^\/rooms\/[a-z0-9]{4,6}\/join\/?$/i.test(path)) {
+    if (mode === "token" && req.get("x-duoxing-auth") !== "token-v1") {
+      res.status(426).json({ error: "应用已升级，请联网刷新页面后再创建或加入房间。" });
+      return;
+    }
+    next(); return;
+  }
+  const match = path.match(/^\/rooms\/([a-z0-9]{4,6})\/(me|participants\/[^/]+|preferences|reset|recommendations\/reroll)\/?$/i);
   if (!match) { next(); return; }
-  if (mode === "token" && match[2].startsWith("participants/")) {
+  const isLegacyRoute = match[2].toLowerCase().startsWith("participants/");
+  if (mode === "token" && isLegacyRoute) {
     res.status(426).json({ error: "应用已升级，请联网刷新页面或重新打开都行。旧房间身份不能继续使用。" });
     return;
   }
   const header = req.get("authorization");
   const bearer = header?.match(/^Bearer ([^\s]+)$/i)?.[1];
-  const legacyId = match[2].startsWith("participants/") ? match[2].slice(13) : req.body?.participantId;
+  const legacyId = isLegacyRoute ? match[2].slice(13) : req.body?.participantId;
   if (mode !== "token") {
     const id = bearer ?? legacyId;
     // Even during rollback/drain, never let an ID authenticate a token identity.

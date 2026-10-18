@@ -227,7 +227,7 @@ router.post(
 
     const roomCode = params.data.roomCode.toUpperCase();
     const participantId = randomUUID();
-    const credential = issueCredential();
+    let credential = issueCredential();
     const nickname = body.data.nickname?.trim() || "参与者 2";
     const outcome = await db.transaction(async (tx) => {
       const [room] = await tx
@@ -243,6 +243,8 @@ router.post(
         .from(duoxingParticipantsTable)
         .where(eq(duoxingParticipantsTable.roomCode, roomCode));
       if (authMode() === "token" && participants.some(p => p.tokenHash === null)) return "legacy";
+      // A safe drain rollback must not add legacy identities to token rooms.
+      if (participants.some(p => p.tokenHash !== null)) credential = issueCredential("token");
       if (participants.length >= ROOM_SIZE) return "full";
 
       await tx.insert(duoxingParticipantsTable).values({

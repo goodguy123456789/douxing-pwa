@@ -20,6 +20,10 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Create a room and join as its first participant
  */
+export const CreateRoomHeader = zod.object({
+  "X-Duoxing-Auth": zod.string().optional().describe('Required with value token-v1 in token mode; rejects old cached clients before allocating identities. Not an authentication secret.')
+})
+
 export const createRoomBodyNicknameMax = 24;
 
 
@@ -100,6 +104,10 @@ export const joinRoomPathRoomCodeMax = 6;
 
 export const JoinRoomParams = zod.object({
   "roomCode": zod.coerce.string().min(joinRoomPathRoomCodeMin).max(joinRoomPathRoomCodeMax)
+})
+
+export const JoinRoomHeader = zod.object({
+  "X-Duoxing-Auth": zod.string().optional().describe('Required with value token-v1 in token mode; rejects old cached clients before allocating identities. Not an authentication secret.')
 })
 
 export const joinRoomBodyNicknameMax = 24;
