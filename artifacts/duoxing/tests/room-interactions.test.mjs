@@ -13,8 +13,9 @@ test('null and malformed errors use safe fallback', () => {
   for (const value of [null, undefined, {}, { data: { error: 5 } }]) assert.equal(errorMessage(value, '保存失败'), '保存失败');
 });
 test('ordinary Error still provides useful message', () => assert.equal(errorMessage(new Error('网络已断开'), '保存失败'), '网络已断开'));
-test('reset disclosure covers both participants and unsaved drafts before confirmation', () => {
-  for (const word of ['双方', '已提交', '尚未提交', '重新填写', '无法撤销', '确定继续']) assert.ok(RESET_WARNING.includes(word));
+test('reset disclosure explains private saved drafts and both confirmations', () => {
+  for (const word of ['双方', '已保存', '仅本人可见', '尚未提交', '旧结果会立即失效', '重新确认', '确定继续']) assert.ok(RESET_WARNING.includes(word));
+  assert.doesNotMatch(RESET_WARNING, /清除双方.*偏好|重新填写/);
 });
 test('ranking explanation explicitly separates fairness order from reference scores', () => {
   for (const word of ['最低个人接受度', '平均接受度', '最后', '不一定按参考分从高到低']) assert.ok(RANKING_DESCRIPTION.includes(word));

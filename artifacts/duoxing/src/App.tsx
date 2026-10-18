@@ -373,18 +373,19 @@ function RoomPage() {
   const room = roomQuery.data;
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
-  const previousRevision = useRef<number | undefined>(undefined);
+  const hydratedDraft = useRef<string>('');
+  const draftKey = room ? `${roomCode}:${participantId}:${room.preferenceRevision}` : '';
 
   useEffect(() => {
-    if (room && previousRevision.current !== undefined && previousRevision.current !== room.preferenceRevision) {
-      setNickname('');
-      setBudget(BudgetLevel.unlimited);
-      setDistance(DistanceLimit.unlimited);
-      setSpice(SpicePreference.any);
-      setAttitudes({});
-    }
-    previousRevision.current = room?.preferenceRevision;
-  }, [room?.preferenceRevision]);
+    if (!room || hydratedDraft.current === draftKey) return;
+    const draft = room.ownDraft;
+    setNickname(draft?.nickname ?? '');
+    setBudget(draft?.budget ?? BudgetLevel.unlimited);
+    setDistance(draft?.distance ?? DistanceLimit.unlimited);
+    setSpice(draft?.spice ?? SpicePreference.any);
+    setAttitudes(Object.fromEntries((draft?.cuisinePreferences ?? []).map(p => [p.cuisine, p.attitude])));
+    hydratedDraft.current = draftKey;
+  }, [room, draftKey]);
 
   const joinCurrentRoom = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -400,7 +401,7 @@ function RoomPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!participantId || !room) return;
+    if (!participantId || !room || hydratedDraft.current !== draftKey) return;
     const cuisinePreferences = cuisines.filter((cuisine) => attitudes[cuisine]).map((cuisine) => ({
       cuisine,
       attitude: attitudes[cuisine],
@@ -534,7 +535,6 @@ function RoomPage() {
     resetRoom.mutate({ roomCode, data: { participantId } }, {
       onSuccess: (status) => {
         setRoomError('');
-        setAttitudes({});
         queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
       },
       onError: (error) => setRoomError(errorMessage(error, '暂时无法开启新一轮，请稍后再试。')),
@@ -642,7 +642,11 @@ function RoomPage() {
                 simulationPending={simulationPending}
                 onSimulate={simulateSecondParticipant}
               />
+            ) : hydratedDraft.current !== draftKey ? (
+              <p role="status" className="py-6 text-center text-sm text-[#8e8372]">正在恢复你的偏好…</p>
             ) : (
+              <div>
+              {room.ownDraft && <p className="mb-3 text-xs leading-6 text-[#8e8372]" data-testid="text-draft-restored">已保留你上次保存的偏好，仅你可见。可直接重新确认，或修改后确认；双方确认后才会揭晓。尚未提交的修改不会保存。</p>}
               <PreferenceForm
                 nickname={nickname}
                 setNickname={setNickname}
@@ -657,6 +661,7 @@ function RoomPage() {
                 pending={submitPreferences.isPending}
                 onSubmit={handleSubmit}
               />
+              </div>
             )}
             <div className="mt-6 flex items-center justify-center gap-1.5 text-[10px] text-[#aa9f8e]"><ShieldCheck size={13} className="text-[#77a17c]" />你的偏好只会在双方提交后参与匹配</div>
           </div>
@@ -932,7 +937,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
         {resetBusy ? <LoaderCircle size={16} className="animate-spin" /> : <RotateCcw size={15} />}
         {resetBusy ? '正在重新选偏好…' : recommendations.length === 0 ? '重新调整偏好' : '重新选偏好'}
       </button>
-      <p className="mt-2 text-center text-[10px] leading-relaxed text-[#a39785]">重选会清空双方本轮偏好及尚未提交的填写内容，双方需重新填写并提交。操作前会再次确认。</p>
+      <p className="mt-2 text-center text-[10px] leading-relaxed text-[#a39785]">重选保留各自已保存的偏好，仅本人可见。旧结果立即失效，双方修改或重新确认后才会揭晓。操作前会再次确认。</p>
       <button type="button" onClick={onHome} disabled={actionBusy} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl text-[12px] font-semibold text-[#9c8e7a] disabled:opacity-60" data-testid="button-new-room">
         开一个新房间 <ArrowDownRight size={14} />
       </button>

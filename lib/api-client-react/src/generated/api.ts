@@ -234,7 +234,8 @@ export const getGetRoomUrl = (roomCode: string,
 }
 
 /**
- * @summary Get participant-specific progress without revealing unsubmitted preferences
+ * The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
+ * @summary Get progress and only the requesting participant's saved draft
  */
 export const getRoom = async (roomCode: string,
     participantId: string, options?: Parameters<typeof customFetch>[1]): Promise<RoomStatus> => {
@@ -284,7 +285,7 @@ export type GetRoomQueryError = ErrorType<ErrorResponse>
 
 
 /**
- * @summary Get participant-specific progress without revealing unsubmitted preferences
+ * @summary Get progress and only the requesting participant's saved draft
  */
 
 export function useGetRoom<TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(
@@ -493,7 +494,7 @@ export const getResetRoomUrl = (roomCode: string,) => {
 }
 
 /**
- * @summary Clear round preferences and start another round
+ * @summary Keep private drafts, clear both confirmations and invalidate old results
  */
 export const resetRoom = async (roomCode: string,
     roomResetInput: RoomResetInput, options?: Parameters<typeof customFetch>[1]): Promise<RoomStatus> => {
@@ -560,7 +561,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type ResetRoomMutationVariables = {roomCode: string;data: BodyType<RoomResetInput>}
 
     /**
- * @summary Clear round preferences and start another round
+ * @summary Keep private drafts, clear both confirmations and invalidate old results
  */
 export const useResetRoom = <TError = ErrorType<ErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetRoom>>, TError,ResetRoomMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}

@@ -130,6 +130,18 @@ export const RoomStatusState = {
   revealed: 'revealed',
 } as const;
 
+/**
+ * Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.
+ * @nullable
+ */
+export type PrivatePreferenceDraft = {
+  nickname: string;
+  budget: BudgetLevel;
+  distance: DistanceLimit;
+  cuisinePreferences: CuisinePreference[];
+  spice: SpicePreference;
+} | null;
+
 export interface RoomStatus {
   roomCode: string;
   /** @nullable */
@@ -138,6 +150,7 @@ export interface RoomStatus {
   submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
+  ownDraft: PrivatePreferenceDraft | null;
   preferenceRevision: number;
   algorithmVersion: string;
   hasMoreRecommendations: boolean;

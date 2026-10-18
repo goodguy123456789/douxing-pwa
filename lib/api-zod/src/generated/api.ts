@@ -35,7 +35,8 @@ export const CreateRoomResponse = zod.object({
 
 
 /**
- * @summary Get participant-specific progress without revealing unsubmitted preferences
+ * The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
+ * @summary Get progress and only the requesting participant's saved draft
  */
 export const getRoomPathRoomCodeMin = 4;
 export const getRoomPathRoomCodeMax = 6;
@@ -59,6 +60,16 @@ export const GetRoomResponse = zod.object({
   "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
+  "ownDraft": zod.object({
+  "nickname": zod.string(),
+  "budget": zod.enum(['1', '2', '3', 'unlimited']),
+  "distance": zod.enum(['1', '3', '5', 'unlimited']),
+  "cuisinePreferences": zod.array(zod.object({
+  "cuisine": zod.enum(['中餐', '火锅', '日料', '韩餐', '西餐', '东南亚', '烧烤', '小吃', '咖啡 / 甜品']),
+  "attitude": zod.enum(['love', 'okay', 'avoid'])
+})),
+  "spice": zod.enum(['none', 'mild', 'any'])
+}).nullable().describe('Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.'),
   "preferenceRevision": zod.number().int(),
   "algorithmVersion": zod.string(),
   "hasMoreRecommendations": zod.boolean(),
@@ -144,6 +155,16 @@ export const SubmitPreferencesResponse = zod.object({
   "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
+  "ownDraft": zod.object({
+  "nickname": zod.string(),
+  "budget": zod.enum(['1', '2', '3', 'unlimited']),
+  "distance": zod.enum(['1', '3', '5', 'unlimited']),
+  "cuisinePreferences": zod.array(zod.object({
+  "cuisine": zod.enum(['中餐', '火锅', '日料', '韩餐', '西餐', '东南亚', '烧烤', '小吃', '咖啡 / 甜品']),
+  "attitude": zod.enum(['love', 'okay', 'avoid'])
+})),
+  "spice": zod.enum(['none', 'mild', 'any'])
+}).nullable().describe('Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.'),
   "preferenceRevision": zod.number().int(),
   "algorithmVersion": zod.string(),
   "hasMoreRecommendations": zod.boolean(),
@@ -162,7 +183,7 @@ export const SubmitPreferencesResponse = zod.object({
 
 
 /**
- * @summary Clear round preferences and start another round
+ * @summary Keep private drafts, clear both confirmations and invalidate old results
  */
 export const resetRoomPathRoomCodeMin = 4;
 export const resetRoomPathRoomCodeMax = 6;
@@ -189,6 +210,16 @@ export const ResetRoomResponse = zod.object({
   "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
+  "ownDraft": zod.object({
+  "nickname": zod.string(),
+  "budget": zod.enum(['1', '2', '3', 'unlimited']),
+  "distance": zod.enum(['1', '3', '5', 'unlimited']),
+  "cuisinePreferences": zod.array(zod.object({
+  "cuisine": zod.enum(['中餐', '火锅', '日料', '韩餐', '西餐', '东南亚', '烧烤', '小吃', '咖啡 / 甜品']),
+  "attitude": zod.enum(['love', 'okay', 'avoid'])
+})),
+  "spice": zod.enum(['none', 'mild', 'any'])
+}).nullable().describe('Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.'),
   "preferenceRevision": zod.number().int(),
   "algorithmVersion": zod.string(),
   "hasMoreRecommendations": zod.boolean(),
@@ -234,6 +265,16 @@ export const RerollRecommendationsResponse = zod.object({
   "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
+  "ownDraft": zod.object({
+  "nickname": zod.string(),
+  "budget": zod.enum(['1', '2', '3', 'unlimited']),
+  "distance": zod.enum(['1', '3', '5', 'unlimited']),
+  "cuisinePreferences": zod.array(zod.object({
+  "cuisine": zod.enum(['中餐', '火锅', '日料', '韩餐', '西餐', '东南亚', '烧烤', '小吃', '咖啡 / 甜品']),
+  "attitude": zod.enum(['love', 'okay', 'avoid'])
+})),
+  "spice": zod.enum(['none', 'mild', 'any'])
+}).nullable().describe('Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.'),
   "preferenceRevision": zod.number().int(),
   "algorithmVersion": zod.string(),
   "hasMoreRecommendations": zod.boolean(),

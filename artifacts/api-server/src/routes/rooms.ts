@@ -98,6 +98,16 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
     s.participantId === p.id && SubmitPreferencesBody.safeParse({ ...s, participantId: p.id, preferenceRevision: room.round }).success));
   const submittedCount = valid.length;
   const revealed = participants.length === ROOM_SIZE && submittedCount === ROOM_SIZE;
+  const ownPreferences = saved.find(p => p.participantId === participant.id);
+  // The anonymous participant ID is a bearer credential. Project only its owner's
+  // draft; never send the saved array, partner IDs, or persistence metadata.
+  const draft = GetRoomResponse.shape.ownDraft.safeParse(ownPreferences ? {
+    nickname: participant.nickname,
+    budget: ownPreferences.budget,
+    distance: ownPreferences.distance,
+    cuisinePreferences: ownPreferences.cuisinePreferences,
+    spice: ownPreferences.spice,
+  } : null);
 
   let recommendations: RestaurantRecommendation[] = [];
   let hasMoreRecommendations = false;
@@ -144,6 +154,7 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
     submittedCount,
     requiredParticipantCount: ROOM_SIZE,
     hasSubmitted: valid.some(p => p.id === participant.id),
+    ownDraft: draft.success ? draft.data : null,
     preferenceRevision: room.round,
     algorithmVersion: ALGORITHM_VERSION,
     hasMoreRecommendations,
@@ -192,6 +203,7 @@ router.post("/rooms", async (req, res): Promise<void> => {
 router.get(
   "/rooms/:roomCode/participants/:participantId",
   async (req, res): Promise<void> => {
+    res.set("Cache-Control", "no-store");
     const params = GetRoomParams.safeParse(req.params);
     if (!params.success) {
       res.status(400).json(errorResponse(params.error.message));
@@ -311,7 +323,6 @@ router.put(
       }
       // A repeated submission changes the preference set and invalidates EVERY old vote.
       if (participant.submittedAt !== null) {
-        await tx.delete(duoxingPreferencesTable).where(inArray(duoxingPreferencesTable.participantId, participants.map(p => p.id)));
         await tx.update(duoxingParticipantsTable).set({ submittedAt: null })
           .where(eq(duoxingParticipantsTable.roomCode, roomCode));
         await tx.update(duoxingRoomsTable).set({ round: room.round + 1, recommendationPage: 0 })
@@ -404,14 +415,6 @@ router.post(
         return "not_found";
       }
       if (participants.length > 0) {
-        await tx
-          .delete(duoxingPreferencesTable)
-          .where(
-            inArray(
-              duoxingPreferencesTable.participantId,
-              participants.map((entry) => entry.id),
-            ),
-          );
         await tx
           .update(duoxingParticipantsTable)
           .set({ submittedAt: null })

@@ -42,3 +42,67 @@ test("stale revision after partner resets cannot save preferences or reveal stal
   const current = (await get(a.participantId)).data;
   assert.equal(current.preferenceRevision, 2); assert.equal(current.submittedCount, 0); assert.deepEqual(current.recommendations, []);
 });
+test("reset keeps distinct private drafts, survives reload reads and needs both current confirmations", async () => {
+  const { a, b, path, submit, get } = await setup();
+  const first = { nickname: "甲", budget: "2", distance: "3", spice: "mild", cuisinePreferences: [{ cuisine: "日料", attitude: "love" }, { cuisine: "火锅", attitude: "avoid" }] };
+  const second = { nickname: "乙", budget: "3", distance: "5", spice: "none", cuisinePreferences: [{ cuisine: "中餐", attitude: "okay" }] };
+  assert.equal((await get(a.participantId)).data.ownDraft, null);
+  await submit(a.participantId, 1, first);
+  assert.equal((await get(b.participantId)).data.ownDraft, null);
+  await submit(b.participantId, 1, second);
+  const reset = await request(path + "/reset", "POST", { participantId: a.participantId });
+  assert.equal(reset.status, 200);
+  assert.deepEqual(reset.data.ownDraft, first);
+  for (const [id, draft] of [[a.participantId, first], [b.participantId, second]]) {
+    // Independent reads model refresh recovery and the partner's poll.
+    for (let i = 0; i < 2; i++) {
+      const { data } = await get(id);
+      assert.deepEqual(data.ownDraft, draft);
+      assert.equal(data.preferenceRevision, 2);
+      assert.equal(data.hasSubmitted, false);
+      assert.equal(data.submittedCount, 0);
+      assert.equal(data.state, "choosing");
+      assert.equal(data.candidateCount, 0);
+      assert.equal(data.hasMoreRecommendations, false);
+      assert.deepEqual(data.recommendations, []);
+    }
+  }
+  assert.equal((await request(path + "/recommendations/reroll", "POST", { participantId: a.participantId })).status, 409);
+  assert.equal((await submit(a.participantId, 1, { ...first, budget: "1" })).status, 400);
+  assert.deepEqual((await get(a.participantId)).data.ownDraft, first);
+  const edited = { ...first, budget: "unlimited", cuisinePreferences: [] };
+  assert.equal((await submit(a.participantId, 2, edited)).data.submittedCount, 1);
+  const partner = (await get(b.participantId)).data;
+  assert.equal(partner.hasSubmitted, false);
+  assert.deepEqual(partner.ownDraft, second);
+  assert.deepEqual(partner.recommendations, []);
+  assert.equal((await submit(b.participantId, 2, second)).data.state, "revealed");
+  assert.equal((await get(a.participantId)).data.state, "revealed");
+  await request(path + "/reset", "POST", { participantId: b.participantId });
+  assert.deepEqual((await get(a.participantId)).data.ownDraft, edited);
+  assert.equal((await get(a.participantId)).data.preferenceRevision, 3);
+});
+test("draft access requires a room-scoped secret participant ID and exposes no partner data", async () => {
+  const { a, b, path, submit, get } = await setup();
+  const { a: outsider } = await setup();
+  await submit(a.participantId, 1, { nickname: "不公开的称呼", cuisinePreferences: [{ cuisine: "烧烤", attitude: "avoid" }] });
+  const partner = (await get(b.participantId)).data;
+  assert.equal(partner.ownDraft, null);
+  assert.doesNotMatch(JSON.stringify(partner), new RegExp(`${a.participantId}|不公开的称呼|烧烤|avoid|updatedAt`));
+  assert.equal((await get(outsider.participantId)).status, 404);
+  assert.equal((await get("not-a-participant")).status, 404);
+  const response = await fetch(base + path + "/participants/" + a.participantId);
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.deepEqual(Object.keys((await response.json()).ownDraft).sort(), ["budget", "cuisinePreferences", "distance", "nickname", "spice"]);
+});
+test("resubmission preserves the partner draft without preserving their confirmation", async () => {
+  const { a, b, submit, get } = await setup();
+  await submit(a.participantId);
+  await submit(b.participantId, 1, { budget: "2", spice: "none" });
+  const draft = (await get(b.participantId)).data.ownDraft;
+  await submit(a.participantId, 1, { budget: "3" });
+  const current = (await get(b.participantId)).data;
+  assert.deepEqual(current.ownDraft, draft);
+  assert.equal(current.hasSubmitted, false);
+  assert.equal(current.preferenceRevision, 2);
+});

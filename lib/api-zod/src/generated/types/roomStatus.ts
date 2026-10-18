@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PrivatePreferenceDraft } from './privatePreferenceDraft';
 import type { RestaurantRecommendation } from './restaurantRecommendation';
 import type { RoomStatusState } from './roomStatusState';
 
@@ -16,6 +17,7 @@ export interface RoomStatus {
   submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
+  ownDraft: PrivatePreferenceDraft | null;
   preferenceRevision: number;
   algorithmVersion: string;
   hasMoreRecommendations: boolean;

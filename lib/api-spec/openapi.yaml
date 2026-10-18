@@ -48,7 +48,8 @@ paths:
     get:
       operationId: getRoom
       tags: [rooms]
-      summary: Get participant-specific progress without revealing unsubmitted preferences
+      summary: Get progress and only the requesting participant's saved draft
+      description: The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
       parameters:
         - name: roomCode
           in: path
@@ -155,7 +156,7 @@ paths:
     post:
       operationId: resetRoom
       tags: [rooms]
-      summary: Clear round preferences and start another round
+      summary: Keep private drafts, clear both confirmations and invalidate old results
       parameters:
         - name: roomCode
           in: path
@@ -356,6 +357,8 @@ components:
           type: integer
         hasSubmitted:
           type: boolean
+        ownDraft:
+          $ref: "#/components/schemas/PrivatePreferenceDraft"
         preferenceRevision:
           type: integer
         algorithmVersion:
@@ -371,5 +374,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RestaurantRecommendation"
-      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, preferenceRevision, algorithmVersion, hasMoreRecommendations, candidateCount, state, recommendations]
+      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, ownDraft, preferenceRevision, algorithmVersion, hasMoreRecommendations, candidateCount, state, recommendations]
+    PrivatePreferenceDraft:
+      type: [object, "null"]
+      description: Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.
+      properties:
+        nickname:
+          type: string
+        budget:
+          $ref: "#/components/schemas/BudgetLevel"
+        distance:
+          $ref: "#/components/schemas/DistanceLimit"
+        cuisinePreferences:
+          type: array
+          items:
+            $ref: "#/components/schemas/CuisinePreference"
+        spice:
+          $ref: "#/components/schemas/SpicePreference"
+      required: [nickname, budget, distance, cuisinePreferences, spice]
 
