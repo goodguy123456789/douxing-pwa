@@ -277,7 +277,10 @@ router.put(
     }
     const body = SubmitPreferencesBody.safeParse(req.body);
     if (!body.success) {
-      res.status(400).json(errorResponse(body.error.message));
+      const revisionIssue = body.error.issues.some(issue => issue.path[0] === "preferenceRevision");
+      res.status(400).json(errorResponse(revisionIssue
+        ? "页面版本过旧或尚未同步，请刷新页面后重新填写并提交；这次选择尚未保存。"
+        : body.error.message));
       return;
     }
     if (new Set(body.data.cuisinePreferences.map(p => p.cuisine)).size !== body.data.cuisinePreferences.length) {

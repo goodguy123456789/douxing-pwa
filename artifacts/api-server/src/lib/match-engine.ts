@@ -1,5 +1,5 @@
 /** Authoritative, deterministic matching rules. No database or UI dependencies. */
-export const ALGORITHM_VERSION = "fair-match-1";
+export const ALGORITHM_VERSION = "fair-match-2";
 export const MATCH_WEIGHTS = { cuisine: 0.3, fairness: 0.3, budget: 0.15, distance: 0.15, spicy: 0.1 } as const;
 export type MatchParticipant = {
   budget: string;
@@ -53,8 +53,10 @@ export function calculateMatch(participants: MatchParticipant[], restaurant: Mat
   const dimensions = {
     cuisine: averageSatisfaction,
     fairness: minimumSatisfaction * agreement,
-    budget: participants.reduce((sum, p) => sum + (p.budget === "unlimited" ? 0.5 : 1), 0) / participants.length,
-    distance: participants.reduce((sum, p) => sum + (p.distance === "unlimited" ? 0.5 : 1), 0) / participants.length,
+    // Example-only attributes are eligibility constraints, not evidence of satisfaction.
+    // Setting a limit must never earn points compared with leaving it unrestricted.
+    budget: 0.5,
+    distance: 0.5,
     spicy: knownSpice
       ? participants.reduce((sum, p) => sum + (p.spice === "any" ? 0.5 : 1), 0) / participants.length
       : 0.5,

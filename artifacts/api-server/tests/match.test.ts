@@ -41,3 +41,59 @@ test("weights sum to one and formula matches rounded weighted dimensions", () =>
 test("one participant cannot calculate a final match", () => assert.equal(calculateMatch([p("love")], r), null));
 test("sparse preferences cannot generate unjustified high scores", () => assert.ok(score([p(), p()]).matchScore <= 20));
 test("N=8 needs no algorithm changes", () => assert.ok(calculateMatch(Array.from({ length: 8 }, () => p("okay")), r)));
+
+// Audit-only reconstruction of the previous formula, used to record before/after evidence.
+function previousScore(ps: MatchParticipant[], restaurant: MatchRestaurant) {
+  const result = calculateMatch(ps, restaurant)!;
+  const dimensions = {
+    ...result.dimensions,
+    budget: ps.reduce((sum, p) => sum + (p.budget === "unlimited" ? 0.5 : 1), 0) / ps.length,
+    distance: ps.reduce((sum, p) => sum + (p.distance === "unlimited" ? 0.5 : 1), 0) / ps.length,
+  };
+  return Math.round(100 * Object.entries(MATCH_WEIGHTS).reduce((sum, [key, weight]) => sum + dimensions[key as keyof typeof MATCH_WEIGHTS] * weight, 0));
+}
+test("audit: setting a passing budget no longer earns extra points", () => {
+  const ps = [p(), p()]; const limited = ps.map(x => ({ ...x, budget: "2" }));
+  // Preserve actual old JavaScript floating-point/Math.round output, not idealized decimal arithmetic.
+  assert.equal(previousScore(ps, r), 20); assert.equal(previousScore(limited, r), 27);
+  assert.equal(score(limited).matchScore, score(ps).matchScore);
+});
+test("audit: setting a passing distance no longer earns extra points", () => {
+  const ps = [p(), p()]; const limited = ps.map(x => ({ ...x, distance: "3" }));
+  assert.equal(previousScore(limited, r), 27);
+  assert.equal(score(limited).matchScore, score(ps).matchScore);
+});
+test("audit: mixed finite/unlimited constraints share neutral dimensions", () => {
+  const result = score([p("love"), p("okay", "日料", { budget: "2", distance: "3" })]);
+  assert.equal(result.dimensions.budget, 0.5); assert.equal(result.dimensions.distance, 0.5);
+});
+test("audit: finite constraints cannot turn missing cuisine evidence into higher score", () => {
+  const ps = [p(), p()].map(x => ({ ...x, budget: "2", distance: "3" }));
+  assert.equal(previousScore(ps, r), 35); assert.equal(score(ps).matchScore, 20);
+});
+test("audit: three-person fair order can differ from reference-score order", () => {
+  const ps = [p("love"), p("okay"), p("okay")];
+  ps.forEach(x => x.cuisinePreferences.push({ cuisine: "中餐", attitude: "okay" }));
+  const ranked = rankCandidates(ps, [r, { ...r, name: "中餐候选", cuisine: "中餐" }]);
+  assert.deepEqual(ranked.map(x => x.cuisine), ["日料", "中餐"]);
+  assert.deepEqual(ranked.map(x => x.matchScore), [48, 50]);
+  assert.deepEqual(ranked.map(x => previousScore(ps, x)), [48, 50]);
+  assert.ok(ranked[0].averageSatisfaction > ranked[1].averageSatisfaction);
+});
+test("audit: two-person known spice example also retains fair ordering despite reference scores", () => {
+  const ps = [p("love"), p("okay")].map(x => ({ ...x, spice: "none" }));
+  ps.forEach(x => x.cuisinePreferences.push({ cuisine: "中餐", attitude: "okay" }));
+  const ranked = rankCandidates(ps, [r, { ...r, name: "可调整中餐", cuisine: "中餐", spiceAdjustable: true }]);
+  assert.deepEqual(ranked.map(x => x.matchScore), [50, 55]);
+  assert.equal(ranked[0].cuisine, "日料");
+});
+test("audit: current two-person unknown-spice pairings have no score inversion (81 combinations)", () => {
+  const values = [undefined, "okay", "love"];
+  for (const a of values) for (const b of values) for (const c of values) for (const d of values) {
+    const ps = [p(a), p(b)];
+    if (c) ps[0].cuisinePreferences.push({ cuisine: "中餐", attitude: c });
+    if (d) ps[1].cuisinePreferences.push({ cuisine: "中餐", attitude: d });
+    const ranked = rankCandidates(ps, [r, { ...r, name: "中餐", cuisine: "中餐" }]);
+    assert.ok(ranked[0].matchScore >= ranked[1].matchScore);
+  }
+});

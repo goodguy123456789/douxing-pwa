@@ -21,3 +21,24 @@ test("10 and 17 reroll keeps participants, revision and restaurant scores; exhau
 test("reset increments revision and removes both submissions", async () => { const { a, b, path, submit } = await setup(); await submit(a.participantId); await submit(b.participantId); const { data } = await request(path + "/reset", "POST", { participantId: a.participantId }); assert.equal(data.preferenceRevision, 2); assert.equal(data.submittedCount, 0); assert.deepEqual(data.recommendations, []); assert.equal((await submit(a.participantId, 1)).status, 400); });
 test("hard-filtered empty result is real and room still rejects a third person", async () => { const { a, b, path, submit } = await setup(); const cuisinePreferences = ["中餐", "火锅", "日料", "韩餐", "西餐", "东南亚", "烧烤", "小吃", "咖啡 / 甜品"].map(cuisine => ({ cuisine, attitude: "avoid" })); await submit(a.participantId, 1, { cuisinePreferences }); const { data } = await submit(b.participantId); assert.equal(data.state, "revealed"); assert.equal(data.candidateCount, 0); assert.deepEqual(data.recommendations, []); assert.equal((await request(path + "/join", "POST", {})).status, 409); });
 test("invalid or duplicate preferences do not count as submissions", async () => { const { a, submit, get } = await setup(); assert.equal((await submit(a.participantId, 1, { budget: "bad" })).status, 400); assert.equal((await submit(a.participantId, 1, { cuisinePreferences: [{ cuisine: "日料", attitude: "love" }, { cuisine: "日料", attitude: "avoid" }] })).status, 400); assert.equal((await get(a.participantId)).data.submittedCount, 0); });
+test("legacy page without revision receives human refresh guidance instead of Zod issues", async () => {
+  const { a, path, get } = await setup();
+  const payload = preferences(a.participantId); delete payload.preferenceRevision;
+  const response = await request(path + "/preferences", "PUT", payload);
+  assert.equal(response.status, 400); assert.match(response.data.error, /刷新页面/); assert.match(response.data.error, /尚未保存/);
+  assert.doesNotMatch(response.data.error, /invalid_type|expected|preferenceRevision/);
+  assert.equal((await get(a.participantId)).data.submittedCount, 0);
+});
+test("invalid revision type also returns refresh guidance", async () => {
+  const { a, submit } = await setup(); const response = await submit(a.participantId, "old");
+  assert.equal(response.status, 400); assert.match(response.data.error, /刷新页面/);
+});
+test("stale revision after partner resets cannot save preferences or reveal stale results", async () => {
+  const { a, b, path, submit, get } = await setup();
+  await submit(a.participantId); await submit(b.participantId);
+  await request(path + "/reset", "POST", { participantId: b.participantId });
+  const response = await submit(a.participantId, 1);
+  assert.equal(response.status, 400); assert.match(response.data.error, /刷新页面/);
+  const current = (await get(a.participantId)).data;
+  assert.equal(current.preferenceRevision, 2); assert.equal(current.submittedCount, 0); assert.deepEqual(current.recommendations, []);
+});

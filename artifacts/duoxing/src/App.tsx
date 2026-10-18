@@ -46,6 +46,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { errorMessage, RANKING_DESCRIPTION, RESET_WARNING } from '@/lib/room-interactions';
 import { Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -138,13 +139,6 @@ function makeRandomPreferences(participantId: string, preferenceRevision: number
       SpicePreference.any,
     ]),
   };
-}
-
-function errorMessage(error: unknown, fallback: string) {
-  if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-    return error.message;
-  }
-  return fallback;
 }
 
 function BrandMark({ small = false }: { small?: boolean }) {
@@ -406,7 +400,7 @@ function RoomPage() {
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!participantId) return;
+    if (!participantId || !room) return;
     const cuisinePreferences = cuisines.filter((cuisine) => attitudes[cuisine]).map((cuisine) => ({
       cuisine,
       attitude: attitudes[cuisine],
@@ -421,6 +415,10 @@ function RoomPage() {
       spice: spice as PreferenceSubmission['spice'],
     };
     submitPreferences.mutate({ roomCode, data: payload }, {
+      onSuccess: (status) => {
+        setRoomError('');
+        queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
+      },
       onError: (error) => setRoomError(errorMessage(error, '保存失败，请检查网络后再试。')),
     });
   };
@@ -532,11 +530,12 @@ function RoomPage() {
 
   const startAgain = () => {
     if (!participantId) return;
+    if (!window.confirm(RESET_WARNING)) return;
     resetRoom.mutate({ roomCode, data: { participantId } }, {
-      onSuccess: () => {
+      onSuccess: (status) => {
         setRoomError('');
         setAttitudes({});
-        queryClient.invalidateQueries({ queryKey: getGetRoomQueryKey(roomCode, participantId) });
+        queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
       },
       onError: (error) => setRoomError(errorMessage(error, '暂时无法开启新一轮，请稍后再试。')),
     });
@@ -619,7 +618,10 @@ function RoomPage() {
                 </div>
               </div>
             </div>
-            {roomError && <div className="mb-4 rounded-xl border border-[#f0c7b7] bg-[#fff1eb] px-4 py-3 text-xs text-[#a94e3d]" role="alert" data-testid="error-room-action">{roomError}</div>}
+            {roomError && <div className="mb-4 rounded-xl border border-[#f0c7b7] bg-[#fff1eb] px-4 py-3 text-xs text-[#a94e3d]" role="alert" data-testid="error-room-action">
+              {roomError}
+              {roomError.includes('刷新') && <button type="button" onClick={() => window.location.reload()} className="ml-2 font-bold underline" data-testid="button-refresh-room" title="刷新会清除本页尚未提交的填写内容">刷新页面</button>}
+            </div>}
 
             {revealed ? (
               <Results
@@ -839,6 +841,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
           <p className="relative mt-2 text-[12px] text-[#856b3f]">{recommendations.length ? '先看最合适的一家，也可以继续换一组。' : '暂时没有找到同时符合你们要求的选择。'}</p>
         </div>
         <div className="space-y-3 p-4">
+          <p className="text-[11px] leading-relaxed text-[#8e7b5d]" data-testid="text-ranking-explanation">{RANKING_DESCRIPTION}</p>
           {recommendations.length === 0 ? (
             <div className="rounded-[20px] bg-[#f8f4ec] px-4 py-7 text-center" data-testid="empty-recommendations">
               <MapPin size={24} className="mx-auto text-[#c89c62]" />
@@ -853,7 +856,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                     <span className="rounded-full bg-[#f8e5ae] px-2.5 py-1 text-[10px] font-bold tracking-[.04em] text-[#80612d]">首选推荐</span>
                     <div className="text-right">
                       <span className="text-[20px] font-extrabold leading-none text-[#d9742b]" data-testid="text-recommendation-match-0">{firstRecommendation.matchScore}/100</span>
-                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">匹配评分</span>
+                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">综合参考分</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -907,7 +910,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                     </div>
                     <div className="shrink-0 text-right">
                       <span className="text-[15px] font-extrabold text-[#d27a38]" data-testid={`text-recommendation-match-${index + 1}`}>{restaurant.matchScore}/100</span>
-                      <span className="block text-[8px] font-medium text-[#a39785]">匹配评分</span>
+                      <span className="block text-[8px] font-medium text-[#a39785]">综合参考分</span>
                     </div>
                   </div>
                 </article>
@@ -916,7 +919,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
           )}
           <div className="flex items-start gap-2 rounded-[16px] bg-[#f7f3eb] px-3.5 py-3 text-[10px] leading-[1.65] text-[#978a76]">
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#7d9b78]" />
-            <p>当前为示例餐厅数据。距离相对于固定示例位置，并非你的实时位置；价格是等级参考，营业状态未经验证。匹配评分是内部偏好评分，不是满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
+            <p>当前为示例餐厅数据。距离相对于固定示例位置，并非你的实时位置；价格是等级参考，营业状态未经验证。综合参考分是内部偏好评分，不是排名分或满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
           </div>
         </div>
       </div>
@@ -929,11 +932,11 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
         {resetBusy ? <LoaderCircle size={16} className="animate-spin" /> : <RotateCcw size={15} />}
         {resetBusy ? '正在重新选偏好…' : recommendations.length === 0 ? '重新调整偏好' : '重新选偏好'}
       </button>
-      <p className="mt-2 text-center text-[10px] text-[#a39785]">重新选偏好会清除双方本轮提交内容</p>
+      <p className="mt-2 text-center text-[10px] leading-relaxed text-[#a39785]">重选会清空双方本轮偏好及尚未提交的填写内容，双方需重新填写并提交。操作前会再次确认。</p>
       <button type="button" onClick={onHome} disabled={actionBusy} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl text-[12px] font-semibold text-[#9c8e7a] disabled:opacity-60" data-testid="button-new-room">
         开一个新房间 <ArrowDownRight size={14} />
       </button>
-      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">优先最低个人满意度，再看平均满意度和综合评分</p>
+      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">公平优先推荐，综合参考分不代表排名</p>
     </section>
   );
 }
