@@ -6,7 +6,10 @@ import { join } from "node:path";
 const dir = await mkdtemp(join(tmpdir(), "duoxing-tests-"));
 try {
   const outfiles = [];
-  for (const name of ["match", "http-logging"]) {
+  const tests = process.argv.includes("--retention")
+    ? ["room-retention"]
+    : ["match", "http-logging", "periodic-cleanup"];
+  for (const name of tests) {
     const outfile = join(dir, `${name}.test.cjs`);
     await build({ entryPoints: [`tests/${name}.test.ts`], outfile, platform: "node", format: "cjs", bundle: true });
     outfiles.push(outfile);

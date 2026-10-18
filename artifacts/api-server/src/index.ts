@@ -1,5 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { cleanupExpiredRooms } from "./lib/room-cleanup";
+import { startPeriodicCleanup } from "./lib/periodic-cleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -15,11 +17,15 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
   }
 
   logger.info({ port }, "Server listening");
+  const stopCleanup = startPeriodicCleanup(cleanupExpiredRooms, () => {
+    logger.error("Expired room cleanup failed; will retry on the next interval");
+  });
+  server.once("close", stopCleanup);
 });

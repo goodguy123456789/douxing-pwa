@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Router, type IRouter } from "express";
 import {
   CreateRoomBody,
@@ -55,27 +55,6 @@ function isUniqueConstraintError(error: unknown): boolean {
 
 function errorResponse(message: string) {
   return { error: message };
-}
-
-async function findActiveRoom(roomCode: string) {
-  const [room] = await db
-    .select()
-    .from(duoxingRoomsTable)
-    .where(
-      and(
-        eq(duoxingRoomsTable.code, roomCode),
-        gt(duoxingRoomsTable.expiresAt, new Date()),
-      ),
-    )
-    .limit(1);
-
-  if (!room) {
-    await db
-      .delete(duoxingRoomsTable)
-      .where(eq(duoxingRoomsTable.code, roomCode));
-  }
-
-  return room;
 }
 
 async function getParticipantStatus(roomCode: string, participantId: string) {
