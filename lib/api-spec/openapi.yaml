@@ -183,6 +183,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /rooms/{roomCode}/recommendations/reroll:
+    post:
+      operationId: rerollRecommendations
+      tags: [rooms]
+      summary: Show the next set of recommendations without changing preferences
+      parameters:
+        - name: roomCode
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 4
+            maxLength: 6
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RerollRecommendationsInput"
+      responses:
+        "200":
+          description: Next recommendation set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoomStatus"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Both participants have not submitted yet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Room or participant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -266,6 +310,12 @@ components:
         participantId:
           type: string
       required: [participantId]
+    RerollRecommendationsInput:
+      type: object
+      properties:
+        participantId:
+          type: string
+      required: [participantId]
     RestaurantRecommendation:
       type: object
       properties:
@@ -297,6 +347,8 @@ components:
           type: ["string", "null"]
         participantCount:
           type: integer
+        submittedCount:
+          type: integer
         requiredParticipantCount:
           type: integer
         hasSubmitted:
@@ -308,5 +360,5 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RestaurantRecommendation"
-      required: [roomCode, participantId, participantCount, requiredParticipantCount, hasSubmitted, state, recommendations]
+      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, state, recommendations]
 

@@ -15,6 +15,7 @@ export * from './errorResponse';
 export * from './healthStatus';
 export * from './participantInput';
 export * from './preferenceSubmission';
+export * from './rerollRecommendationsInput';
 export * from './restaurantRecommendation';
 export * from './roomCreateInput';
 export * from './roomParticipantResponse';

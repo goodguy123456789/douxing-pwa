@@ -56,6 +56,7 @@ export const GetRoomResponse = zod.object({
   "roomCode": zod.string(),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
+  "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
   "state": zod.enum(['choosing', 'waiting_for_partner', 'waiting_for_other', 'revealed']),
@@ -134,6 +135,7 @@ export const SubmitPreferencesResponse = zod.object({
   "roomCode": zod.string(),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
+  "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
   "state": zod.enum(['choosing', 'waiting_for_partner', 'waiting_for_other', 'revealed']),
@@ -174,6 +176,7 @@ export const ResetRoomResponse = zod.object({
   "roomCode": zod.string(),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
+  "submittedCount": zod.number().int(),
   "requiredParticipantCount": zod.number().int(),
   "hasSubmitted": zod.boolean(),
   "state": zod.enum(['choosing', 'waiting_for_partner', 'waiting_for_other', 'revealed']),
@@ -184,6 +187,47 @@ export const ResetRoomResponse = zod.object({
   "distance": zod.number(),
   "spicyLevel": zod.number().int(),
   "matchPercent": zod.number().int().min(resetRoomResponseRecommendationsItemMatchPercentMin).max(resetRoomResponseRecommendationsItemMatchPercentMax),
+  "reasons": zod.array(zod.string())
+}))
+})
+
+
+/**
+ * @summary Show the next set of recommendations without changing preferences
+ */
+export const rerollRecommendationsPathRoomCodeMin = 4;
+export const rerollRecommendationsPathRoomCodeMax = 6;
+
+
+
+export const RerollRecommendationsParams = zod.object({
+  "roomCode": zod.coerce.string().min(rerollRecommendationsPathRoomCodeMin).max(rerollRecommendationsPathRoomCodeMax)
+})
+
+export const RerollRecommendationsBody = zod.object({
+  "participantId": zod.string()
+})
+
+export const rerollRecommendationsResponseRecommendationsItemMatchPercentMin = 0;
+export const rerollRecommendationsResponseRecommendationsItemMatchPercentMax = 100;
+
+
+
+export const RerollRecommendationsResponse = zod.object({
+  "roomCode": zod.string(),
+  "participantId": zod.string().nullable(),
+  "participantCount": zod.number().int(),
+  "submittedCount": zod.number().int(),
+  "requiredParticipantCount": zod.number().int(),
+  "hasSubmitted": zod.boolean(),
+  "state": zod.enum(['choosing', 'waiting_for_partner', 'waiting_for_other', 'revealed']),
+  "recommendations": zod.array(zod.object({
+  "name": zod.string(),
+  "cuisine": zod.enum(['中餐', '火锅', '日料', '韩餐', '西餐', '东南亚', '烧烤', '小吃', '咖啡 / 甜品']),
+  "priceLevel": zod.number().int(),
+  "distance": zod.number(),
+  "spicyLevel": zod.number().int(),
+  "matchPercent": zod.number().int().min(rerollRecommendationsResponseRecommendationsItemMatchPercentMin).max(rerollRecommendationsResponseRecommendationsItemMatchPercentMax),
   "reasons": zod.array(zod.string())
 }))
 })

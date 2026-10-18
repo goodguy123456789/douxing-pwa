@@ -13,6 +13,7 @@ export interface RoomStatus {
   /** @nullable */
   participantId: string | null;
   participantCount: number;
+  submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
   state: RoomStatusState;

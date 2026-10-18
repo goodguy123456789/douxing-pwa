@@ -64,6 +64,7 @@ function spiceCompatible(
 
 export function rankRestaurants(
   participants: ParticipantPreferences[],
+  recommendationPage = 0,
 ): RestaurantRecommendation[] {
   if (participants.length === 0) return [];
 
@@ -135,10 +136,14 @@ export function rankRestaurants(
         Number(b.spiceFits) - Number(a.spiceFits) ||
         b.matchPercent - a.matchPercent ||
         a.name.localeCompare(b.name, "zh-CN"),
-    )
-    .slice(0, 3);
+    );
 
-  return ranked.map(
+  const pageCount = Math.max(1, Math.ceil(ranked.length / 3));
+  const currentPage =
+    Math.max(0, Math.floor(recommendationPage)) % pageCount;
+  const selected = ranked.slice(currentPage * 3, currentPage * 3 + 3);
+
+  return selected.map(
     ({ cuisinePoints: _cuisinePoints, budgetFits: _budgetFits, distanceFits: _distanceFits, spiceFits: _spiceFits, ...recommendation }) =>
       recommendation,
   );

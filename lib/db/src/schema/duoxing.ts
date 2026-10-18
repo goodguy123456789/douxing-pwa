@@ -20,6 +20,7 @@ export const duoxingRoomsTable = pgTable("duoxing_rooms", {
     .defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   round: integer("round").notNull().default(1),
+  recommendationPage: integer("recommendation_page").notNull().default(0),
 });
 
 export const duoxingParticipantsTable = pgTable(

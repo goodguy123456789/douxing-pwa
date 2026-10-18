@@ -9,6 +9,8 @@ import {
   JoinRoomBody,
   JoinRoomParams,
   JoinRoomResponse,
+  RerollRecommendationsBody,
+  RerollRecommendationsParams,
   ResetRoomBody,
   ResetRoomParams,
   ResetRoomResponse,
@@ -89,6 +91,9 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
   const revealed =
     participants.length === ROOM_SIZE &&
     participants.every((entry) => entry.submittedAt !== null);
+  const submittedCount = participants.filter(
+    (entry) => entry.submittedAt !== null,
+  ).length;
 
   let recommendations: RestaurantRecommendation[] = [];
   if (revealed) {
@@ -118,6 +123,7 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
             spice: preferences.spice,
           });
         }),
+        room.recommendationPage,
       );
     }
   }
@@ -134,6 +140,7 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
     roomCode,
     participantId,
     participantCount: participants.length,
+    submittedCount,
     requiredParticipantCount: ROOM_SIZE,
     hasSubmitted: participant.submittedAt !== null,
     state,
@@ -394,7 +401,7 @@ router.post(
       }
       await tx
         .update(duoxingRoomsTable)
-        .set({ round: room.round + 1 })
+        .set({ round: room.round + 1, recommendationPage: 0 })
         .where(eq(duoxingRoomsTable.code, roomCode));
       return "reset";
     });
@@ -413,6 +420,72 @@ router.post(
       return;
     }
     res.json(ResetRoomResponse.parse(status));
+  },
+);
+
+router.post(
+  "/rooms/:roomCode/recommendations/reroll",
+  async (req, res): Promise<void> => {
+    const params = RerollRecommendationsParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json(errorResponse(params.error.message));
+      return;
+    }
+    const body = RerollRecommendationsBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json(errorResponse(body.error.message));
+      return;
+    }
+
+    const roomCode = params.data.roomCode.toUpperCase();
+    const outcome = await db.transaction(async (tx) => {
+      const [room] = await tx
+        .select()
+        .from(duoxingRoomsTable)
+        .where(eq(duoxingRoomsTable.code, roomCode))
+        .for("update")
+        .limit(1);
+      if (!room || room.expiresAt <= new Date()) return "not_found";
+
+      const participants = await tx
+        .select()
+        .from(duoxingParticipantsTable)
+        .where(eq(duoxingParticipantsTable.roomCode, roomCode));
+      if (!participants.some((entry) => entry.id === body.data.participantId)) {
+        return "not_found";
+      }
+      if (
+        participants.length !== ROOM_SIZE ||
+        participants.some((entry) => entry.submittedAt === null)
+      ) {
+        return "not_ready";
+      }
+
+      await tx
+        .update(duoxingRoomsTable)
+        .set({ recommendationPage: room.recommendationPage + 1 })
+        .where(eq(duoxingRoomsTable.code, roomCode));
+      return "rerolled";
+    });
+
+    if (outcome === "not_found") {
+      res.status(404).json(errorResponse("房间或参与者不存在，或房间已过期。"));
+      return;
+    }
+    if (outcome === "not_ready") {
+      res.status(409).json(errorResponse("双方完成选择后才能更换推荐。"));
+      return;
+    }
+
+    const status = await getParticipantStatus(
+      roomCode,
+      body.data.participantId,
+    );
+    if (!status) {
+      res.status(404).json(errorResponse("房间或参与者不存在，或房间已过期。"));
+      return;
+    }
+    res.json(status);
   },
 );
 

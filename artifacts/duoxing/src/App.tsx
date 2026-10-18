@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Check,
   CheckCircle2,
+  ChevronDown,
   CircleHelp,
   ClipboardCheck,
   Compass,
@@ -34,6 +35,7 @@ import {
   useHealthCheck,
   useJoinRoom,
   useResetRoom,
+  useRerollRecommendations,
   useSubmitPreferences,
   type Cuisine as CuisineType,
   type CuisineAttitude as CuisineAttitudeType,
@@ -156,12 +158,32 @@ function BrandMark({ small = false }: { small?: boolean }) {
 }
 
 function ApiSignal() {
-  const { data, isError, isLoading } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 30000 } });
-  const isOnline = Boolean(data && !isError);
+  const { isError } = useHealthCheck({
+    query: {
+      queryKey: getHealthCheckQueryKey(),
+      refetchInterval: 30000,
+    },
+  });
+  const [browserOnline, setBrowserOnline] = useState(
+    () => typeof navigator === 'undefined' || navigator.onLine,
+  );
+
+  useEffect(() => {
+    const updateNetworkStatus = () => setBrowserOnline(navigator.onLine);
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
+
+  if (browserOnline && !isError) return null;
+
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#e5dece] bg-[#fffaf0] px-2.5 py-1 text-[10px] font-semibold tracking-[.02em] text-[#756d60]" data-testid="status-api">
-      <span className={`h-1.5 w-1.5 rounded-full ${isLoading ? 'bg-[#d6a745]' : isOnline ? 'bg-[#5e9a70]' : 'bg-[#c9765c]'}`} />
-      {isLoading ? '连接中' : isOnline ? '服务正常' : '暂时离线'}
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#efc4b4] bg-[#fff1eb] px-2.5 py-1 text-[10px] font-semibold tracking-[.02em] text-[#a94e3d]" role="status" data-testid="status-api-error">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#c9765c]" />
+      {!browserOnline ? '网络连接中断' : '服务暂时不可用'}
     </span>
   );
 }
@@ -294,7 +316,7 @@ function Home() {
 function ChoiceGroup<T extends string>({ label, hint, options, value, onChange, testId }: {
   label: string;
   hint?: string;
-  options: { value: T; label: string }[];
+  options: { value: T; label: string; subLabel?: string }[];
   value: T;
   onChange: (value: T) => void;
   testId: string;
@@ -309,8 +331,9 @@ function ChoiceGroup<T extends string>({ label, hint, options, value, onChange, 
         {options.map((option) => {
           const active = value === option.value;
           return (
-            <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={active} className={`pill-choice min-h-[43px] rounded-[14px] border px-2 text-[12px] font-semibold ${active ? 'border-[#f28c3a] bg-[#fff0dc] text-[#b96020] shadow-[inset_0_0_0_1px_#f28c3a]' : 'border-[#ebe3d7] bg-[#fffdf8] text-[#716757] hover:border-[#e8bb8b]'}`} data-testid={`${testId}-${String(option.value)}`}>
+            <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={active} className={`pill-choice flex min-h-[43px] flex-col items-center justify-center rounded-[14px] border px-1.5 text-[12px] font-semibold transition ${option.subLabel ? 'min-h-[56px] py-1' : ''} ${active ? 'border-[#f28c3a] bg-[#fff0dc] text-[#b96020] shadow-[inset_0_0_0_1px_#f28c3a]' : 'border-[#e9e3d8] bg-[#f4f0e8] text-[#807667] hover:border-[#e8bb8b]'}`} data-testid={`${testId}-${String(option.value)}`}>
               {option.label}
+              {option.subLabel && <span className="mt-0.5 text-[9px] font-medium leading-tight text-current opacity-75">{option.subLabel}</span>}
             </button>
           );
         })}
@@ -351,6 +374,7 @@ function RoomPage() {
   const joinRoom = useJoinRoom();
   const submitPreferences = useSubmitPreferences();
   const resetRoom = useResetRoom();
+  const rerollRecommendations = useRerollRecommendations();
   const room = roomQuery.data;
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
@@ -483,14 +507,19 @@ function RoomPage() {
 
   const shareInvite = async () => {
     const url = `${window.location.origin}/room/${roomCode}`;
+    const resultName = room?.recommendations[0]?.name;
     if (!navigator.share) {
       await copyInvite();
       return;
     }
     try {
       await navigator.share({
-        title: '都行',
-        text: '和我一起决定今晚吃什么。',
+        title: revealed ? '都行 · 今晚的推荐' : '都行',
+        text: revealed
+          ? resultName
+            ? `今晚推荐：${resultName}。`
+            : '我们已经一起完成了今晚的选择。'
+          : '和我一起决定今晚吃什么。',
         url,
       });
     } catch (error) {
@@ -511,10 +540,29 @@ function RoomPage() {
     });
   };
 
+  const rerollResult = () => {
+    if (!participantId || !revealed) return;
+    setRoomError('');
+    rerollRecommendations.mutate(
+      { roomCode, data: { participantId } },
+      {
+        onSuccess: (status) => {
+          queryClient.setQueryData(
+            getGetRoomQueryKey(roomCode, participantId),
+            status,
+          );
+        },
+        onError: (error) =>
+          setRoomError(
+            errorMessage(error, '暂时无法更换推荐，请稍后再试。'),
+          ),
+      },
+    );
+  };
+
   const stateLabel = useMemo(() => {
     if (room?.state === 'revealed') return '揭晓时刻';
-    if (room?.state === 'waiting_for_partner') return '等对方选好';
-    if (room?.state === 'waiting_for_other') return '你已经准备好了';
+    if (room?.state === 'waiting_for_partner' || room?.state === 'waiting_for_other') return '等待另一位完成';
     return '今晚吃什么';
   }, [room?.state]);
 
@@ -560,25 +608,31 @@ function RoomPage() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <button type="button" onClick={shareInvite} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#eaddc9] bg-[#fff8eb] px-3 text-[11px] font-semibold text-[#8d7456]" data-testid="button-share-invite">
-                  <Share2 size={13} />分享邀请
+                  <Share2 size={13} />{revealed ? '分享结果' : '分享邀请'}
                 </button>
                 <div className="rounded-full border border-[#eaddc9] bg-[#fff8eb] px-3 py-1.5 text-[11px] font-semibold text-[#8d7456]" data-testid="text-participant-count">
-                  {room.hasSubmitted
-                    ? `1/${room.requiredParticipantCount} 位已提交`
-                    : `${room.participantCount}/${room.requiredParticipantCount} 位已加入`}
+                  {revealed
+                    ? '双方已完成选择'
+                    : `${room.submittedCount}/${room.requiredParticipantCount} 位已提交`}
                 </div>
               </div>
             </div>
             {roomError && <div className="mb-4 rounded-xl border border-[#f0c7b7] bg-[#fff1eb] px-4 py-3 text-xs text-[#a94e3d]" role="alert" data-testid="error-room-action">{roomError}</div>}
 
             {revealed ? (
-              <Results room={room} onAgain={startAgain} onHome={() => setLocation('/')} busy={resetRoom.isPending} />
+              <Results
+                room={room}
+                onReroll={rerollResult}
+                onReselect={startAgain}
+                onHome={() => setLocation('/')}
+                rerollBusy={rerollRecommendations.isPending}
+                resetBusy={resetRoom.isPending}
+              />
             ) : mySubmitted || room.state === 'waiting_for_partner' || room.state === 'waiting_for_other' ? (
               <Waiting
                 roomCode={roomCode}
                 onCopy={copyInvite}
                 copied={copied}
-                state={room.state}
                 devSimulationEnabled={devSimulationEnabled}
                 canSimulate={room.participantCount < room.requiredParticipantCount || Boolean(devParticipantId)}
                 simulationPending={simulationPending}
@@ -627,8 +681,11 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
       <section className="surface rounded-[24px] p-4">
         <div className="mb-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-[10px] bg-[#fff0dc] text-[#da762a]"><Compass size={15} /></span><h2 className="text-[14px] font-bold">先说说你的范围</h2></div>
         <div className="space-y-4">
-          <ChoiceGroup label="人均预算" hint="约每人" value={budget} onChange={setBudget} testId="choice-budget" options={[
-            { value: BudgetLevel.NUMBER_1, label: '¥' }, { value: BudgetLevel.NUMBER_2, label: '¥¥' }, { value: BudgetLevel.NUMBER_3, label: '¥¥¥' }, { value: BudgetLevel.unlimited, label: '不限' },
+          <ChoiceGroup label="人均预算" hint="参考区间" value={budget} onChange={setBudget} testId="choice-budget" options={[
+            { value: BudgetLevel.NUMBER_1, label: '¥', subLabel: '≤50 / 人' },
+            { value: BudgetLevel.NUMBER_2, label: '¥¥', subLabel: '50–100 / 人' },
+            { value: BudgetLevel.NUMBER_3, label: '¥¥¥', subLabel: '100+ / 人' },
+            { value: BudgetLevel.unlimited, label: '不限' },
           ]} />
           <ChoiceGroup label="愿意走多远" value={distance} onChange={setDistance} testId="choice-distance" options={[
             { value: DistanceLimit.NUMBER_1, label: '1 km' }, { value: DistanceLimit.NUMBER_3, label: '3 km' }, { value: DistanceLimit.NUMBER_5, label: '5 km' }, { value: DistanceLimit.unlimited, label: '不限' },
@@ -638,29 +695,36 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
 
       <section className="surface rounded-[24px] p-4">
         <div className="mb-1 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-[10px] bg-[#fff0dc] text-[#da762a]"><Heart size={15} /></span><h2 className="text-[14px] font-bold">今天想吃哪种？</h2></div>
-        <p className="mb-3 ml-9 text-[11px] text-[#a39785]">选择喜欢 / 可以 / 不太想；再点一次可取消</p>
+        <p className="mb-3 ml-9 text-[11px] text-[#a39785]">选择喜欢 / 可以 / 不太想；未选择 = 无所谓，再点可取消</p>
         <div className="space-y-2">
           {cuisines.map((cuisine) => {
             const current = attitudes[cuisine];
             const settings: { value: CuisineAttitudeType; label: string; selected: string }[] = [
-              { value: CuisineAttitude.love, label: '喜欢', selected: 'border-[#e9a05a] bg-[#fff1df] text-[#a95f24]' },
-              { value: CuisineAttitude.okay, label: '可以', selected: 'border-[#d9dfbd] bg-[#f4f6e9] text-[#687443]' },
-              { value: CuisineAttitude.avoid, label: '不想', selected: 'border-[#e6c5b8] bg-[#fff0ea] text-[#a9654e]' },
+              { value: CuisineAttitude.love, label: '喜欢', selected: 'border-[#e9a05a] bg-[#fff1df] text-[#a95f24] shadow-[0_2px_6px_#e8873820] scale-[1.03]' },
+              { value: CuisineAttitude.okay, label: '可以', selected: 'border-[#a9c58c] bg-[#edf5e7] text-[#52733d] shadow-[0_1px_4px_#52733d18]' },
+              { value: CuisineAttitude.avoid, label: '不想', selected: 'border-[#e2a6a0] bg-[#fff0ee] text-[#a34843] shadow-[0_1px_4px_#a3484318]' },
             ];
+            const badgeTone = current === CuisineAttitude.love
+              ? 'bg-[#fff1df] text-[#bd6e2c]'
+              : current === CuisineAttitude.okay
+                ? 'bg-[#edf5e7] text-[#64844d]'
+                : current === CuisineAttitude.avoid
+                  ? 'bg-[#fff0ee] text-[#b35e57]'
+                  : 'bg-[#f2ede3] text-[#9c7850]';
             return (
               <div key={cuisine} className="flex min-h-[43px] items-center justify-between rounded-[14px] bg-[#fffdf8] px-2.5" data-testid={`row-cuisine-${cuisine}`}>
                 <div className="flex items-center gap-2.5">
-                  <span className="grid h-7 w-7 place-items-center rounded-[9px] bg-[#f7efdf] text-[10px] font-bold text-[#9c7850]">{cuisineIcons[cuisine]}</span>
+                  <span className={`grid h-7 w-7 place-items-center rounded-[9px] text-[10px] font-bold transition-colors ${badgeTone}`}>{cuisineIcons[cuisine]}</span>
                   <span className="text-[12px] font-semibold text-[#5d5346]">{cuisine}</span>
                 </div>
-                <div className="flex rounded-xl bg-[#f5f0e7] p-[3px]">
+                <div className="flex rounded-xl bg-[#f0ece4] p-[3px]">
                   {settings.map((setting) => (
                     <button type="button" key={setting.value} onClick={() => {
                       const next = { ...attitudes };
                       if (current === setting.value) delete next[cuisine];
                       else next[cuisine] = setting.value;
                       setAttitudes(next);
-                    }} aria-pressed={current === setting.value} className={`rounded-[9px] px-2.5 py-1.5 text-[10px] font-semibold transition ${current === setting.value ? `${setting.selected} shadow-[0_1px_4px_#76532b18]` : 'text-[#a39785]'}`} data-testid={`choice-cuisine-${cuisine}-${setting.value}`}>
+                    }} aria-pressed={current === setting.value} className={`rounded-[9px] border px-2.5 py-1.5 text-[10px] font-semibold transition ${current === setting.value ? setting.selected : 'border-transparent bg-transparent text-[#8c8173] hover:bg-[#e8e1d6]'}`} data-testid={`choice-cuisine-${cuisine}-${setting.value}`}>
                       {setting.label}
                     </button>
                   ))}
@@ -690,11 +754,10 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
   );
 }
 
-function Waiting({ roomCode, onCopy, copied, state, devSimulationEnabled, canSimulate, simulationPending, onSimulate }: {
+function Waiting({ roomCode, onCopy, copied, devSimulationEnabled, canSimulate, simulationPending, onSimulate }: {
   roomCode: string;
   onCopy: () => void;
   copied: boolean;
-  state: string;
   devSimulationEnabled: boolean;
   canSimulate: boolean;
   simulationPending: boolean;
@@ -708,8 +771,8 @@ function Waiting({ roomCode, onCopy, copied, state, devSimulationEnabled, canSim
         <div className="pulse-soft relative grid h-[74px] w-[74px] place-items-center rounded-[25px] border-[5px] border-white bg-[#f3c958] text-[#805927] shadow-[0_8px_18px_#bd8b3130]">
           <Utensils size={30} />
         </div>
-        <p className="relative mt-4 text-[19px] font-extrabold tracking-[-.04em] text-[#443627]" data-testid="text-waiting-title">{state === 'waiting_for_other' ? '你已经选好啦' : '你的选择已收好'}</p>
-        <p className="relative mt-1 max-w-[250px] text-[12px] leading-5 text-[#8f7d62]">等对方也准备好，兩个人的口味就会一起变成今晚的答案。</p>
+        <p className="relative mt-4 text-[19px] font-extrabold tracking-[-.04em] text-[#443627]" data-testid="text-waiting-title">你的选择已提交</p>
+        <p className="relative mt-1 max-w-[260px] text-[12px] leading-5 text-[#8f7d62]">等另一个人完成选择，双方都提交后才会揭晓推荐。</p>
       </div>
       <div className="p-5">
         <div className="flex items-center gap-3 rounded-2xl bg-[#f8f4ec] p-3.5">
@@ -746,65 +809,152 @@ function Waiting({ roomCode, onCopy, copied, state, devSimulationEnabled, canSim
   );
 }
 
-function Results({ room, onAgain, onHome, busy }: {
+function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: {
   room: RoomStatus;
-  onAgain: () => void;
+  onReroll: () => void;
+  onReselect: () => void;
   onHome: () => void;
-  busy: boolean;
+  rerollBusy: boolean;
+  resetBusy: boolean;
 }) {
   const recommendations = room.recommendations || [];
+  const [showAllReasons, setShowAllReasons] = useState(false);
+  const firstRecommendation = recommendations[0];
+  useEffect(() => {
+    setShowAllReasons(false);
+  }, [firstRecommendation?.name]);
+  const briefReasons = firstRecommendation
+    ? (() => {
+        const allLoveReason = firstRecommendation.reasons.find(
+          (reason) => reason.includes('很想吃') && reason.includes('2 人'),
+        );
+        const cuisineReason =
+          allLoveReason
+            ? `双方都喜欢${firstRecommendation.cuisine}`
+            : firstRecommendation.reasons.find(
+                (reason) =>
+                  reason.includes('都能接受') ||
+                  reason.includes('选择接受或喜欢') ||
+                  reason.includes('没人否决'),
+              );
+        const budgetReason = firstRecommendation.reasons.find((reason) =>
+          reason.includes('预算'),
+        );
+        return [
+          cuisineReason || `推荐${firstRecommendation.cuisine}`,
+          budgetReason,
+          `距离 ${firstRecommendation.distance.toFixed(1)} km`,
+        ].filter((reason): reason is string => Boolean(reason));
+      })()
+    : [];
+  const actionBusy = rerollBusy || resetBusy;
+
   return (
     <section data-testid="state-results">
       <div className="surface page-enter overflow-hidden rounded-[28px]">
         <div className="relative overflow-hidden bg-[#f6cd67] px-5 pb-6 pt-7">
           <span className="absolute -right-8 -top-12 h-40 w-40 rounded-full border-[22px] border-[#f9df9b]/60" />
           <span className="absolute right-12 top-10 h-3 w-3 rounded-full bg-[#fff6dc]" />
-          <div className="relative flex items-center gap-2 rounded-full bg-[#fff6dd]/70 px-3 py-1.5 text-[10px] font-bold tracking-[.06em] text-[#8b6831] w-fit"><Sparkles size={13} /> 双方偏好已合拍</div>
-          <h2 className="display-title relative mt-4 max-w-[260px] text-[30px] font-extrabold text-[#473821]">今晚的答案，<br />有眉目了。</h2>
-          <p className="relative mt-2 text-[12px] text-[#856b3f]">根据两个人的选择，给你们排了这些去处</p>
+          <div className="relative flex w-fit items-center gap-2 rounded-full bg-[#fff6dd]/70 px-3 py-1.5 text-[10px] font-bold tracking-[.06em] text-[#8b6831]"><CheckCircle2 size={13} />双方已完成选择</div>
+          <h2 className="display-title relative mt-4 max-w-[280px] text-[30px] font-extrabold text-[#473821]">今晚的答案，<br />有眉目了。</h2>
+          <p className="relative mt-2 text-[12px] text-[#856b3f]">先看最合适的一家，也可以继续换一组。</p>
         </div>
         <div className="space-y-3 p-4">
           {recommendations.length === 0 ? (
             <div className="rounded-[20px] bg-[#f8f4ec] px-4 py-7 text-center" data-testid="empty-recommendations">
               <MapPin size={24} className="mx-auto text-[#c89c62]" />
               <p className="mt-2 text-sm font-bold text-[#645746]">这一轮暂时没有合适的推荐</p>
-              <p className="mt-1 text-xs text-[#9d907b]">放宽一点预算或距离，再试一轮吧。</p>
+              <p className="mt-1 text-xs text-[#9d907b]">重新选偏好，放宽预算或距离后再试试。</p>
             </div>
-          ) : recommendations.map((restaurant, index) => (
-            <article key={`${restaurant.name}-${index}`} className={`stagger-in rounded-[21px] border p-4 ${index === 0 ? 'border-[#edc781] bg-[#fff9ed]' : 'border-[#eee5d7] bg-[#fffdf9]'}`} data-testid={`card-recommendation-${index}`}>
-              <div className="flex items-start gap-3">
-                <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-[15px] ${index === 0 ? 'bg-[#f7d77f] text-[#815e2c]' : 'bg-[#f2ecdf] text-[#8c7859]'}`}>
-                  {index === 0 ? <Sparkles size={20} /> : <Utensils size={19} />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="truncate text-[16px] font-extrabold tracking-[-.03em] text-[#43392c]" data-testid={`text-recommendation-name-${index}`}>{restaurant.name}</h3>
-                    <span className="shrink-0 text-[17px] font-extrabold text-[#e47d2e]">{restaurant.matchPercent}<span className="text-[10px]">%</span></span>
+          ) : (
+            <>
+              {firstRecommendation && (
+                <article className="stagger-in rounded-[24px] border-2 border-[#edc781] bg-[#fff9ed] p-4 shadow-[0_8px_20px_#bd8b3114]" data-testid="card-recommendation-0">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="rounded-full bg-[#f8e5ae] px-2.5 py-1 text-[10px] font-bold tracking-[.04em] text-[#80612d]">首选推荐</span>
+                    <div className="text-right">
+                      <span className="text-[20px] font-extrabold leading-none text-[#d9742b]" data-testid="text-recommendation-match-0">{firstRecommendation.matchPercent}%</span>
+                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">匹配度</span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-medium text-[#958875]">
-                    <span>{restaurant.cuisine}</span><span>·</span><span>{'¥'.repeat(Math.max(1, Math.min(3, restaurant.priceLevel || 1)))}</span><span>·</span><span>{restaurant.distance.toFixed(1)} km</span>
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-[#f7d77f] text-[#815e2c]">
+                      <Sparkles size={21} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-[19px] font-extrabold tracking-[-.04em] text-[#43392c]" data-testid="text-recommendation-name-0">{firstRecommendation.name}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-[#8e7b5d]">
+                        <span>{firstRecommendation.cuisine}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{'¥'.repeat(Math.max(1, Math.min(3, firstRecommendation.priceLevel || 1)))}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{firstRecommendation.distance.toFixed(1)} km</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {restaurant.reasons.map((reason, reasonIndex) => <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1 text-[10px] font-medium text-[#7e705b]" data-testid={`text-match-reason-${index}-${reasonIndex}`}>{reason}</span>)}
-              </div>
-            </article>
-          ))}
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {briefReasons.map((reason, reasonIndex) => (
+                      <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1.5 text-[10px] font-semibold text-[#75664f]" data-testid={`text-match-reason-0-${reasonIndex}`}>{reason}</span>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllReasons((visible) => !visible)}
+                    aria-expanded={showAllReasons}
+                    className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#a36e34]"
+                    data-testid="button-why-recommended"
+                  >
+                    为什么推荐？
+                    <ChevronDown size={14} className={`transition-transform ${showAllReasons ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showAllReasons && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#efe2c7] pt-3" data-testid="details-recommendation-reasons">
+                      {firstRecommendation.reasons.map((reason, reasonIndex) => (
+                        <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1.5 text-[10px] font-medium text-[#7e705b]">{reason}</span>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              )}
+              {recommendations.slice(1, 3).map((restaurant, index) => (
+                <article key={`${restaurant.name}-${index + 1}`} className="stagger-in rounded-[19px] border border-[#eee5d7] bg-[#fffdf9] px-3.5 py-3" data-testid={`card-recommendation-${index + 1}`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#f2ecdf] text-[#8c7859]"><Utensils size={17} /></div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-[14px] font-bold text-[#514638]" data-testid={`text-recommendation-name-${index + 1}`}>{restaurant.name}</h3>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium text-[#958875]">
+                        <span>{restaurant.cuisine}</span><span aria-hidden="true">·</span><span>{restaurant.distance.toFixed(1)} km</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-[15px] font-extrabold text-[#d27a38]" data-testid={`text-recommendation-match-${index + 1}`}>{restaurant.matchPercent}%</span>
+                      <span className="block text-[8px] font-medium text-[#a39785]">匹配度</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </>
+          )}
           <div className="flex items-start gap-2 rounded-[16px] bg-[#f7f3eb] px-3.5 py-3 text-[10px] leading-[1.65] text-[#978a76]">
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#7d9b78]" />
             <p>这些是按你们刚才提交的口味做的本地示例推荐，不是实时商家或营业状态信息。</p>
           </div>
         </div>
       </div>
-      <button type="button" onClick={onAgain} disabled={busy} className="mt-4 flex h-[53px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] disabled:opacity-60" data-testid="button-again">
-        {busy ? <LoaderCircle size={18} className="animate-spin" /> : <RotateCcw size={17} />}
-        {busy ? '正在开启新一轮…' : '再来一次'}
+      <button type="button" onClick={onReroll} disabled={actionBusy || recommendations.length === 0} className="mt-4 flex h-[53px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] disabled:cursor-wait disabled:opacity-60" data-testid="button-reroll-recommendations">
+        {rerollBusy ? <LoaderCircle size={18} className="animate-spin" /> : <RotateCcw size={17} />}
+        {rerollBusy ? '正在换一组…' : '换一组推荐'}
       </button>
-      <button type="button" onClick={onHome} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[13px] font-bold text-[#766a58]" data-testid="button-new-room">
-        开一个新房间 <ArrowDownRight size={15} />
+      <p className="mt-2 text-center text-[10px] text-[#a39785]">保留双方当前偏好，只更换候选推荐</p>
+      <button type="button" onClick={onReselect} disabled={actionBusy} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[13px] font-bold text-[#766a58] disabled:opacity-60" data-testid="button-reselect-preferences">
+        {resetBusy ? <LoaderCircle size={16} className="animate-spin" /> : <RotateCcw size={15} />}
+        {resetBusy ? '正在重新选偏好…' : '重新选偏好'}
       </button>
-      <p className="mt-4 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">按共同偏好由高到低排序</p>
+      <p className="mt-2 text-center text-[10px] text-[#a39785]">重新选偏好会清除双方本轮提交内容</p>
+      <button type="button" onClick={onHome} disabled={actionBusy} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl text-[12px] font-semibold text-[#9c8e7a] disabled:opacity-60" data-testid="button-new-room">
+        开一个新房间 <ArrowDownRight size={14} />
+      </button>
+      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">按共同偏好由高到低排序</p>
     </section>
   );
 }

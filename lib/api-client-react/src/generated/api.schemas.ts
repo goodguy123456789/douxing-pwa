@@ -100,6 +100,10 @@ export interface RoomResetInput {
   participantId: string;
 }
 
+export interface RerollRecommendationsInput {
+  participantId: string;
+}
+
 export interface RestaurantRecommendation {
   name: string;
   cuisine: Cuisine;
@@ -129,6 +133,7 @@ export interface RoomStatus {
   /** @nullable */
   participantId: string | null;
   participantCount: number;
+  submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
   state: RoomStatusState;
