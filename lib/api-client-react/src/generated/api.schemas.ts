@@ -94,6 +94,8 @@ export interface PreferenceSubmission {
   distance: DistanceLimit;
   cuisinePreferences: CuisinePreference[];
   spice: SpicePreference;
+  /** @minimum 1 */
+  preferenceRevision: number;
 }
 
 export interface RoomResetInput {
@@ -114,7 +116,7 @@ export interface RestaurantRecommendation {
      * @minimum 0
      * @maximum 100
      */
-  matchPercent: number;
+  matchScore: number;
   reasons: string[];
 }
 
@@ -136,6 +138,10 @@ export interface RoomStatus {
   submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
+  preferenceRevision: number;
+  algorithmVersion: string;
+  hasMoreRecommendations: boolean;
+  candidateCount: number;
   state: RoomStatusState;
   recommendations: RestaurantRecommendation[];
 }

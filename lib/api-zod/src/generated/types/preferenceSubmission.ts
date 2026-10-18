@@ -18,4 +18,6 @@ export interface PreferenceSubmission {
   distance: DistanceLimit;
   cuisinePreferences: CuisinePreference[];
   spice: SpicePreference;
+  /** @minimum 1 */
+  preferenceRevision: number;
 }

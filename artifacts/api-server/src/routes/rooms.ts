@@ -25,7 +25,8 @@ import {
   duoxingPreferencesTable,
   duoxingRoomsTable,
 } from "@workspace/db";
-import { rankRestaurants } from "../lib/meal-recommendations";
+import { getRecommendations } from "../lib/meal-recommendations";
+import { ALGORITHM_VERSION } from "../lib/match-engine";
 
 const router: IRouter = Router();
 const ROOM_SIZE = 2;
@@ -78,36 +79,32 @@ async function findActiveRoom(roomCode: string) {
 }
 
 async function getParticipantStatus(roomCode: string, participantId: string) {
-  const room = await findActiveRoom(roomCode);
-  if (!room) return null;
+  // Serialize the entire snapshot with submit/reset/reroll; never mix two rounds.
+  return db.transaction(async (tx) => {
+  const [room] = await tx.select().from(duoxingRoomsTable)
+    .where(eq(duoxingRoomsTable.code, roomCode)).for("update").limit(1);
+  if (!room || room.expiresAt <= new Date()) return null;
 
-  const participants = await db
+  const participants = await tx
     .select()
     .from(duoxingParticipantsTable)
     .where(eq(duoxingParticipantsTable.roomCode, roomCode));
   const participant = participants.find((entry) => entry.id === participantId);
   if (!participant) return null;
 
-  const revealed =
-    participants.length === ROOM_SIZE &&
-    participants.every((entry) => entry.submittedAt !== null);
-  const submittedCount = participants.filter(
-    (entry) => entry.submittedAt !== null,
-  ).length;
+  const saved = await tx.select().from(duoxingPreferencesTable)
+    .where(inArray(duoxingPreferencesTable.participantId, participants.map(p => p.id)));
+  const valid = participants.filter(p => p.submittedAt !== null && saved.some(s =>
+    s.participantId === p.id && SubmitPreferencesBody.safeParse({ ...s, participantId: p.id, preferenceRevision: room.round }).success));
+  const submittedCount = valid.length;
+  const revealed = participants.length === ROOM_SIZE && submittedCount === ROOM_SIZE;
 
   let recommendations: RestaurantRecommendation[] = [];
+  let hasMoreRecommendations = false;
+  let candidateCount = 0;
   if (revealed) {
-    const saved = await db
-      .select()
-      .from(duoxingPreferencesTable)
-      .where(
-        inArray(
-          duoxingPreferencesTable.participantId,
-          participants.map((entry) => entry.id),
-        ),
-      );
     if (saved.length === participants.length) {
-      recommendations = rankRestaurants(
+      const result = getRecommendations(
         participants.map((entry) => {
           const preferences = saved.find(
             (savedPreferences) => savedPreferences.participantId === entry.id,
@@ -117,6 +114,7 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
           }
           return SubmitPreferencesBody.parse({
             participantId: entry.id,
+            preferenceRevision: room.round,
             budget: preferences.budget,
             distance: preferences.distance,
             cuisinePreferences: preferences.cuisinePreferences,
@@ -125,12 +123,15 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
         }),
         room.recommendationPage,
       );
+      recommendations = result.recommendations as RestaurantRecommendation[];
+      hasMoreRecommendations = result.hasMoreRecommendations;
+      candidateCount = result.candidateCount;
     }
   }
 
   const state = revealed
     ? "revealed"
-    : participant.submittedAt
+    : valid.some(p => p.id === participant.id)
       ? participants.length < ROOM_SIZE
         ? "waiting_for_partner"
         : "waiting_for_other"
@@ -142,9 +143,14 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
     participantCount: participants.length,
     submittedCount,
     requiredParticipantCount: ROOM_SIZE,
-    hasSubmitted: participant.submittedAt !== null,
+    hasSubmitted: valid.some(p => p.id === participant.id),
+    preferenceRevision: room.round,
+    algorithmVersion: ALGORITHM_VERSION,
+    hasMoreRecommendations,
+    candidateCount,
     state,
     recommendations,
+  });
   });
 }
 
@@ -274,6 +280,10 @@ router.put(
       res.status(400).json(errorResponse(body.error.message));
       return;
     }
+    if (new Set(body.data.cuisinePreferences.map(p => p.cuisine)).size !== body.data.cuisinePreferences.length) {
+      res.status(400).json(errorResponse("同一菜系只能提交一种偏好。"));
+      return;
+    }
 
     const roomCode = params.data.roomCode.toUpperCase();
     const submitted = await db.transaction(async (tx) => {
@@ -293,11 +303,16 @@ router.put(
         (entry) => entry.id === body.data.participantId,
       );
       if (!participant) return "not_found";
-      if (
-        participants.length === ROOM_SIZE &&
-        participants.every((entry) => entry.submittedAt !== null)
-      ) {
-        return "already_revealed";
+      if (body.data.preferenceRevision !== undefined && body.data.preferenceRevision !== room.round) {
+        return "stale_revision";
+      }
+      // A repeated submission changes the preference set and invalidates EVERY old vote.
+      if (participant.submittedAt !== null) {
+        await tx.delete(duoxingPreferencesTable).where(inArray(duoxingPreferencesTable.participantId, participants.map(p => p.id)));
+        await tx.update(duoxingParticipantsTable).set({ submittedAt: null })
+          .where(eq(duoxingParticipantsTable.roomCode, roomCode));
+        await tx.update(duoxingRoomsTable).set({ round: room.round + 1, recommendationPage: 0 })
+          .where(eq(duoxingRoomsTable.code, roomCode));
       }
 
       const now = new Date();
@@ -337,8 +352,8 @@ router.put(
       res.status(404).json(errorResponse("房间或参与者不存在，或房间已过期。"));
       return;
     }
-    if (submitted === "already_revealed") {
-      res.status(400).json(errorResponse("这一轮已经揭晓，请开始新一轮。"));
+    if (submitted === "stale_revision") {
+      res.status(400).json(errorResponse("偏好版本已更新，请刷新页面后重新提交。"));
       return;
     }
 
@@ -460,6 +475,11 @@ router.post(
       ) {
         return "not_ready";
       }
+      const saved = await tx.select().from(duoxingPreferencesTable)
+        .where(inArray(duoxingPreferencesTable.participantId, participants.map(p => p.id)));
+      if (saved.length !== participants.length || saved.some(p =>
+        !SubmitPreferencesBody.safeParse({ ...p, preferenceRevision: room.round }).success)) return "not_ready";
+      if (!getRecommendations(saved, room.recommendationPage).hasMoreRecommendations) return "exhausted";
 
       await tx
         .update(duoxingRoomsTable)
@@ -474,6 +494,10 @@ router.post(
     }
     if (outcome === "not_ready") {
       res.status(409).json(errorResponse("双方完成选择后才能更换推荐。"));
+      return;
+    }
+    if (outcome === "exhausted") {
+      res.status(409).json(errorResponse("暂时没有更多符合条件的推荐。"));
       return;
     }
 

@@ -17,6 +17,6 @@ export interface RestaurantRecommendation {
      * @minimum 0
      * @maximum 100
      */
-  matchPercent: number;
+  matchScore: number;
   reasons: string[];
 }

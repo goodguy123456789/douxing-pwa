@@ -92,7 +92,7 @@ function randomChoice<T>(choices: readonly T[]): T {
   return choices[Math.floor(Math.random() * choices.length)];
 }
 
-function makeRandomPreferences(participantId: string): PreferenceSubmission {
+function makeRandomPreferences(participantId: string, preferenceRevision: number): PreferenceSubmission {
   const shuffledCuisines = [...cuisines];
   for (let index = shuffledCuisines.length - 1; index > 0; index -= 1) {
     const swapIndex = Math.floor(Math.random() * (index + 1));
@@ -114,6 +114,7 @@ function makeRandomPreferences(participantId: string): PreferenceSubmission {
 
   return {
     participantId,
+    preferenceRevision,
     nickname: '模拟参与者',
     budget: randomChoice([
       BudgetLevel.NUMBER_1,
@@ -378,18 +379,18 @@ function RoomPage() {
   const room = roomQuery.data;
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
-  const previousRoomState = useRef<string | undefined>(undefined);
+  const previousRevision = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    if (room?.state === 'choosing' && previousRoomState.current === 'revealed') {
+    if (room && previousRevision.current !== undefined && previousRevision.current !== room.preferenceRevision) {
       setNickname('');
       setBudget(BudgetLevel.unlimited);
       setDistance(DistanceLimit.unlimited);
       setSpice(SpicePreference.any);
       setAttitudes({});
     }
-    previousRoomState.current = room?.state;
-  }, [room?.state]);
+    previousRevision.current = room?.preferenceRevision;
+  }, [room?.preferenceRevision]);
 
   const joinCurrentRoom = (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
@@ -412,6 +413,7 @@ function RoomPage() {
     }));
     const payload: PreferenceSubmission = {
       participantId,
+      preferenceRevision: room!.preferenceRevision,
       ...(nickname.trim() ? { nickname: nickname.trim() } : {}),
       budget: budget as PreferenceSubmission['budget'],
       distance: distance as PreferenceSubmission['distance'],
@@ -438,7 +440,7 @@ function RoomPage() {
     submitPreferences.mutate(
       {
         roomCode,
-        data: makeRandomPreferences(virtualParticipantId),
+        data: makeRandomPreferences(virtualParticipantId, room!.preferenceRevision),
       },
       {
         onSuccess: () => {
@@ -681,13 +683,13 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
       <section className="surface rounded-[24px] p-4">
         <div className="mb-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-[10px] bg-[#fff0dc] text-[#da762a]"><Compass size={15} /></span><h2 className="text-[14px] font-bold">先说说你的范围</h2></div>
         <div className="space-y-4">
-          <ChoiceGroup label="人均预算" hint="参考区间" value={budget} onChange={setBudget} testId="choice-budget" options={[
+          <ChoiceGroup label="人均预算" hint="价格等级 · 非精确报价" value={budget} onChange={setBudget} testId="choice-budget" options={[
             { value: BudgetLevel.NUMBER_1, label: '¥', subLabel: '≤50 / 人' },
             { value: BudgetLevel.NUMBER_2, label: '¥¥', subLabel: '50–100 / 人' },
             { value: BudgetLevel.NUMBER_3, label: '¥¥¥', subLabel: '100+ / 人' },
             { value: BudgetLevel.unlimited, label: '不限' },
           ]} />
-          <ChoiceGroup label="愿意走多远" value={distance} onChange={setDistance} testId="choice-distance" options={[
+          <ChoiceGroup label="愿意走多远" hint="相对于固定示例位置" value={distance} onChange={setDistance} testId="choice-distance" options={[
             { value: DistanceLimit.NUMBER_1, label: '1 km' }, { value: DistanceLimit.NUMBER_3, label: '3 km' }, { value: DistanceLimit.NUMBER_5, label: '5 km' }, { value: DistanceLimit.unlimited, label: '不限' },
           ]} />
         </div>
@@ -823,30 +825,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
   useEffect(() => {
     setShowAllReasons(false);
   }, [firstRecommendation?.name]);
-  const briefReasons = firstRecommendation
-    ? (() => {
-        const allLoveReason = firstRecommendation.reasons.find(
-          (reason) => reason.includes('很想吃') && reason.includes('2 人'),
-        );
-        const cuisineReason =
-          allLoveReason
-            ? `双方都喜欢${firstRecommendation.cuisine}`
-            : firstRecommendation.reasons.find(
-                (reason) =>
-                  reason.includes('都能接受') ||
-                  reason.includes('选择接受或喜欢') ||
-                  reason.includes('没人否决'),
-              );
-        const budgetReason = firstRecommendation.reasons.find((reason) =>
-          reason.includes('预算'),
-        );
-        return [
-          cuisineReason || `推荐${firstRecommendation.cuisine}`,
-          budgetReason,
-          `距离 ${firstRecommendation.distance.toFixed(1)} km`,
-        ].filter((reason): reason is string => Boolean(reason));
-      })()
-    : [];
+  const briefReasons = firstRecommendation?.reasons.slice(0, 3) ?? [];
   const actionBusy = rerollBusy || resetBusy;
 
   return (
@@ -856,15 +835,15 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
           <span className="absolute -right-8 -top-12 h-40 w-40 rounded-full border-[22px] border-[#f9df9b]/60" />
           <span className="absolute right-12 top-10 h-3 w-3 rounded-full bg-[#fff6dc]" />
           <div className="relative flex w-fit items-center gap-2 rounded-full bg-[#fff6dd]/70 px-3 py-1.5 text-[10px] font-bold tracking-[.06em] text-[#8b6831]"><CheckCircle2 size={13} />双方已完成选择</div>
-          <h2 className="display-title relative mt-4 max-w-[280px] text-[30px] font-extrabold text-[#473821]">今晚的答案，<br />有眉目了。</h2>
-          <p className="relative mt-2 text-[12px] text-[#856b3f]">先看最合适的一家，也可以继续换一组。</p>
+          <h2 className="display-title relative mt-4 max-w-[280px] text-[30px] font-extrabold text-[#473821]">{recommendations.length ? <>今晚的答案，<br />有眉目了。</> : '看来今天有点难选 😅'}</h2>
+          <p className="relative mt-2 text-[12px] text-[#856b3f]">{recommendations.length ? '先看最合适的一家，也可以继续换一组。' : '暂时没有找到同时符合你们要求的选择。'}</p>
         </div>
         <div className="space-y-3 p-4">
           {recommendations.length === 0 ? (
             <div className="rounded-[20px] bg-[#f8f4ec] px-4 py-7 text-center" data-testid="empty-recommendations">
               <MapPin size={24} className="mx-auto text-[#c89c62]" />
-              <p className="mt-2 text-sm font-bold text-[#645746]">这一轮暂时没有合适的推荐</p>
-              <p className="mt-1 text-xs text-[#9d907b]">重新选偏好，放宽预算或距离后再试试。</p>
+              <p className="mt-2 text-sm font-bold text-[#645746]">没有共同候选，不会自动放宽限制</p>
+              <p className="mt-2 text-xs leading-6 text-[#9d907b]">可能原因：菜系限制过多、预算过低、距离范围过小，或这些条件组合过于严格。</p>
             </div>
           ) : (
             <>
@@ -873,8 +852,8 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <span className="rounded-full bg-[#f8e5ae] px-2.5 py-1 text-[10px] font-bold tracking-[.04em] text-[#80612d]">首选推荐</span>
                     <div className="text-right">
-                      <span className="text-[20px] font-extrabold leading-none text-[#d9742b]" data-testid="text-recommendation-match-0">{firstRecommendation.matchPercent}%</span>
-                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">匹配度</span>
+                      <span className="text-[20px] font-extrabold leading-none text-[#d9742b]" data-testid="text-recommendation-match-0">{firstRecommendation.matchScore}/100</span>
+                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">匹配评分</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -927,8 +906,8 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <span className="text-[15px] font-extrabold text-[#d27a38]" data-testid={`text-recommendation-match-${index + 1}`}>{restaurant.matchPercent}%</span>
-                      <span className="block text-[8px] font-medium text-[#a39785]">匹配度</span>
+                      <span className="text-[15px] font-extrabold text-[#d27a38]" data-testid={`text-recommendation-match-${index + 1}`}>{restaurant.matchScore}/100</span>
+                      <span className="block text-[8px] font-medium text-[#a39785]">匹配评分</span>
                     </div>
                   </div>
                 </article>
@@ -937,24 +916,24 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
           )}
           <div className="flex items-start gap-2 rounded-[16px] bg-[#f7f3eb] px-3.5 py-3 text-[10px] leading-[1.65] text-[#978a76]">
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#7d9b78]" />
-            <p>这些是按你们刚才提交的口味做的本地示例推荐，不是实时商家或营业状态信息。</p>
+            <p>当前为示例餐厅数据。距离相对于固定示例位置，并非你的实时位置；价格是等级参考，营业状态未经验证。匹配评分是内部偏好评分，不是满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
           </div>
         </div>
       </div>
-      <button type="button" onClick={onReroll} disabled={actionBusy || recommendations.length === 0} className="mt-4 flex h-[53px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] disabled:cursor-wait disabled:opacity-60" data-testid="button-reroll-recommendations">
+      <button type="button" onClick={onReroll} disabled={actionBusy || !room.hasMoreRecommendations} className="mt-4 flex h-[53px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] disabled:cursor-wait disabled:opacity-60" data-testid="button-reroll-recommendations">
         {rerollBusy ? <LoaderCircle size={18} className="animate-spin" /> : <RotateCcw size={17} />}
         {rerollBusy ? '正在换一组…' : '换一组推荐'}
       </button>
-      <p className="mt-2 text-center text-[10px] text-[#a39785]">保留双方当前偏好，只更换候选推荐</p>
+      <p className="mt-2 text-center text-[10px] text-[#a39785]">{room.hasMoreRecommendations ? '保留双方当前偏好，只更换候选推荐' : '暂时没有更多符合条件的推荐。'}</p>
       <button type="button" onClick={onReselect} disabled={actionBusy} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[13px] font-bold text-[#766a58] disabled:opacity-60" data-testid="button-reselect-preferences">
         {resetBusy ? <LoaderCircle size={16} className="animate-spin" /> : <RotateCcw size={15} />}
-        {resetBusy ? '正在重新选偏好…' : '重新选偏好'}
+        {resetBusy ? '正在重新选偏好…' : recommendations.length === 0 ? '重新调整偏好' : '重新选偏好'}
       </button>
       <p className="mt-2 text-center text-[10px] text-[#a39785]">重新选偏好会清除双方本轮提交内容</p>
       <button type="button" onClick={onHome} disabled={actionBusy} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl text-[12px] font-semibold text-[#9c8e7a] disabled:opacity-60" data-testid="button-new-room">
         开一个新房间 <ArrowDownRight size={14} />
       </button>
-      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">按共同偏好由高到低排序</p>
+      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">优先最低个人满意度，再看平均满意度和综合评分</p>
     </section>
   );
 }

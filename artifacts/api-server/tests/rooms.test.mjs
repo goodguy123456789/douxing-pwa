@@ -1,0 +1,23 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+const base = "http://localhost:80/api";
+async function request(path, method = "GET", body) {
+  const response = await fetch(base + path, { method, headers: { "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  return { status: response.status, data: await response.json() };
+}
+const preferences = (id, revision = 1, overrides = {}) => ({ participantId: id, preferenceRevision: revision, budget: "unlimited", distance: "unlimited", spice: "any", cuisinePreferences: [], ...overrides });
+async function setup() {
+  const { data: a } = await request("/rooms", "POST", {});
+  const { data: b } = await request(`/rooms/${a.roomCode}/join`, "POST", {});
+  const path = `/rooms/${a.roomCode}`;
+  const submit = (id, revision = 1, extra = {}) => request(path + "/preferences", "PUT", preferences(id, revision, extra));
+  const get = id => request(path + "/participants/" + id);
+  return { a, b, path, submit, get };
+}
+test("12 only 1/2 submitted: no final results from server", async () => { const { a, submit } = await setup(); const { data } = await submit(a.participantId); assert.equal(data.submittedCount, 1); assert.notEqual(data.state, "revealed"); assert.deepEqual(data.recommendations, []); });
+test("13 2/2 valid submissions: both participants get same final results", async () => { const { a, b, submit, get } = await setup(); await submit(a.participantId); const { data } = await submit(b.participantId); assert.equal(data.state, "revealed"); assert.equal(data.submittedCount, 2); assert.deepEqual((await get(a.participantId)).data.recommendations, data.recommendations); });
+test("11 resubmitting invalidates old results and requires fresh partner submission", async () => { const { a, b, submit, get } = await setup(); await submit(a.participantId); await submit(b.participantId); const { data } = await submit(a.participantId, 1, { budget: "1" }); assert.equal(data.preferenceRevision, 2); assert.equal(data.submittedCount, 1); assert.deepEqual(data.recommendations, []); assert.equal((await get(b.participantId)).data.hasSubmitted, false); assert.equal((await submit(b.participantId, 1)).status, 400); assert.equal((await submit(b.participantId, 2)).data.state, "revealed"); });
+test("10 and 17 reroll keeps participants, revision and restaurant scores; exhaustion rejects without wrapping", async () => { const { a, b, path, submit, get } = await setup(); await submit(a.participantId); let current = (await submit(b.participantId)).data; const seen = new Map(); while (true) { for (const item of current.recommendations) { assert.ok(!seen.has(item.name)); seen.set(item.name, item.matchScore); } if (!current.hasMoreRecommendations) break; current = (await request(path + "/recommendations/reroll", "POST", { participantId: a.participantId })).data; assert.equal(current.submittedCount, 2); assert.equal(current.preferenceRevision, 1); } assert.equal(seen.size, current.candidateCount); assert.equal((await request(path + "/recommendations/reroll", "POST", { participantId: a.participantId })).status, 409); assert.deepEqual((await get(b.participantId)).data.recommendations, current.recommendations); });
+test("reset increments revision and removes both submissions", async () => { const { a, b, path, submit } = await setup(); await submit(a.participantId); await submit(b.participantId); const { data } = await request(path + "/reset", "POST", { participantId: a.participantId }); assert.equal(data.preferenceRevision, 2); assert.equal(data.submittedCount, 0); assert.deepEqual(data.recommendations, []); assert.equal((await submit(a.participantId, 1)).status, 400); });
+test("hard-filtered empty result is real and room still rejects a third person", async () => { const { a, b, path, submit } = await setup(); const cuisinePreferences = ["中餐", "火锅", "日料", "韩餐", "西餐", "东南亚", "烧烤", "小吃", "咖啡 / 甜品"].map(cuisine => ({ cuisine, attitude: "avoid" })); await submit(a.participantId, 1, { cuisinePreferences }); const { data } = await submit(b.participantId); assert.equal(data.state, "revealed"); assert.equal(data.candidateCount, 0); assert.deepEqual(data.recommendations, []); assert.equal((await request(path + "/join", "POST", {})).status, 409); });
+test("invalid or duplicate preferences do not count as submissions", async () => { const { a, submit, get } = await setup(); assert.equal((await submit(a.participantId, 1, { budget: "bad" })).status, 400); assert.equal((await submit(a.participantId, 1, { cuisinePreferences: [{ cuisine: "日料", attitude: "love" }, { cuisine: "日料", attitude: "avoid" }] })).status, 400); assert.equal((await get(a.participantId)).data.submittedCount, 0); });

@@ -303,7 +303,10 @@ components:
             $ref: "#/components/schemas/CuisinePreference"
         spice:
           $ref: "#/components/schemas/SpicePreference"
-      required: [participantId, budget, distance, cuisinePreferences, spice]
+        preferenceRevision:
+          type: integer
+          minimum: 1
+      required: [participantId, budget, distance, cuisinePreferences, spice, preferenceRevision]
     RoomResetInput:
       type: object
       properties:
@@ -329,7 +332,7 @@ components:
           type: number
         spicyLevel:
           type: integer
-        matchPercent:
+        matchScore:
           type: integer
           minimum: 0
           maximum: 100
@@ -337,7 +340,7 @@ components:
           type: array
           items:
             type: string
-      required: [name, cuisine, priceLevel, distance, spicyLevel, matchPercent, reasons]
+      required: [name, cuisine, priceLevel, distance, spicyLevel, matchScore, reasons]
     RoomStatus:
       type: object
       properties:
@@ -353,6 +356,14 @@ components:
           type: integer
         hasSubmitted:
           type: boolean
+        preferenceRevision:
+          type: integer
+        algorithmVersion:
+          type: string
+        hasMoreRecommendations:
+          type: boolean
+        candidateCount:
+          type: integer
         state:
           type: string
           enum: [choosing, waiting_for_partner, waiting_for_other, revealed]
@@ -360,5 +371,5 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RestaurantRecommendation"
-      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, state, recommendations]
+      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, preferenceRevision, algorithmVersion, hasMoreRecommendations, candidateCount, state, recommendations]
 

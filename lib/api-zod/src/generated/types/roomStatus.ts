@@ -16,6 +16,10 @@ export interface RoomStatus {
   submittedCount: number;
   requiredParticipantCount: number;
   hasSubmitted: boolean;
+  preferenceRevision: number;
+  algorithmVersion: string;
+  hasMoreRecommendations: boolean;
+  candidateCount: number;
   state: RoomStatusState;
   recommendations: RestaurantRecommendation[];
 }
