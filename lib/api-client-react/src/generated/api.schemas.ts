@@ -26,6 +26,11 @@ export interface ParticipantInput {
 export interface RoomParticipantResponse {
   roomCode: string;
   participantId: string;
+  /**
+     * Returned once on token-mode creation/join; store privately. Absent during legacy/drain.
+     * @pattern ^[a-f0-9]{64}$
+     */
+  participantToken?: string;
 }
 
 export type BudgetLevel = typeof BudgetLevel[keyof typeof BudgetLevel];

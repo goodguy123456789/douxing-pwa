@@ -10,10 +10,18 @@ const secondDraft = {
   cuisinePreferences: [{ cuisine: '中餐', attitude: 'okay' }],
 };
 
+const credentials = new Map();
 async function json(request, url, method = 'GET', data) {
-  const response = await request.fetch(url, { method, data });
+  const oldRead = url.match(/\/participants\/([^/]+)$/);
+  const id = oldRead?.[1] ?? data?.participantId;
+  const token = credentials.get(id);
+  const response = await request.fetch(oldRead ? url.replace(/\/participants\/[^/]+$/, '/me') : url, {
+    method, data, headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   expect(response.ok(), `${method} ${url.replace(/participants\/.*/, 'participants/[private]')}`).toBeTruthy();
-  return response.json();
+  const result = await response.json();
+  if (result.participantToken) credentials.set(result.participantId, result.participantToken);
+  return result;
 }
 
 async function revealedRoom(request) {
@@ -33,13 +41,15 @@ async function revealedRoom(request) {
 async function openParticipant(browser, baseURL, roomCode, participantId) {
   // Independent contexts: neither browser can accidentally reuse the other's identity.
   const context = await browser.newContext({ baseURL, viewport: { width: 402, height: 874 } });
-  await context.addInitScript(({ key, id }) => {
+  await context.addInitScript(({ key, id, token, tokenKey }) => {
     // Do not seed again on reload: the refresh test must prove actual persistence.
     if (!sessionStorage.getItem('browser-test-seeded')) {
       localStorage.setItem(key, id);
+      if (token) localStorage.setItem(tokenKey, token);
       sessionStorage.setItem('browser-test-seeded', 'yes');
     }
-  }, { key: `duoxing:participant:${roomCode}`, id: participantId });
+  }, { key: `duoxing:participant:${roomCode}`, id: participantId,
+    token: credentials.get(participantId), tokenKey: `duoxing:token:${roomCode}:${participantId}` });
   const page = await context.newPage();
   try {
     await page.goto(`/room/${roomCode}`);
@@ -51,7 +61,7 @@ async function openParticipant(browser, baseURL, roomCode, participantId) {
 }
 
 const isStatus = (response, path) =>
-  response.request().method() === 'GET' && new URL(response.url()).pathname.startsWith(`${path}/participants/`);
+  response.request().method() === 'GET' && new URL(response.url()).pathname === `${path}/me`;
 const isSubmit = (response, path) =>
   response.request().method() === 'PUT' && new URL(response.url()).pathname === `${path}/preferences`;
 
@@ -119,7 +129,7 @@ test('取消重选不发送 reset；确认重选立即移除旧结果，并同�
 
     // Block the initiator's future polls. Only the reset mutation response can
     // remove its results, so a missed local cache update cannot pass by polling.
-    await a.route(`**${room.path}/participants/**`, route => route.abort());
+    await a.route(`**${room.path}/me`, route => route.abort());
     const confirmDialog = a.waitForEvent('dialog').then(dialog => dialog.accept());
     const resetResponse = a.waitForResponse(response =>
       response.request().method() === 'POST' && new URL(response.url()).pathname === `${room.path}/reset`);
@@ -214,7 +224,7 @@ for (const failure of ['network', 'server']) {
       // Recovery: remove fault injection, keep the peer's polling intact, and
       // block initiator polls so only the successful reset can clear its cache.
       await a.unroute(resetUrl);
-      await a.route(`**${room.path}/participants/**`, route => route.abort());
+      await a.route(`**${room.path}/me`, route => route.abort());
       const resetResponse = a.waitForResponse(response =>
         response.request().method() === 'POST' && new URL(response.url()).pathname === `${room.path}/reset`);
       await confirmReset();

@@ -16,7 +16,7 @@ export function safeRequestUrl(url: string | undefined): string {
   if (!room) return "[REDACTED]";
   const prefix = `/api/rooms/${room[1]}`;
   const suffix = room[2] ?? "";
-  if (/^(?:join|preferences|reset|recommendations\/reroll)\/?$/i.test(suffix)) {
+  if (/^(?:me|join|preferences|reset|recommendations\/reroll)\/?$/i.test(suffix)) {
     return `${prefix}/${suffix}`;
   }
   if (/^participants(?:\/|$)/i.test(suffix)) {

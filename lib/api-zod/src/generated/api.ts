@@ -28,14 +28,18 @@ export const CreateRoomBody = zod.object({
   "nickname": zod.string().max(createRoomBodyNicknameMax).optional()
 })
 
+export const createRoomResponseParticipantTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
 export const CreateRoomResponse = zod.object({
   "roomCode": zod.string(),
-  "participantId": zod.string()
+  "participantId": zod.string(),
+  "participantToken": zod.string().regex(createRoomResponseParticipantTokenRegExp).optional().describe('Returned once on token-mode creation/join; store privately. Absent during legacy/drain.')
 })
 
 
 /**
- * The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
+ * Bearer token identifies the caller. Only the caller's draft is returned. Legacy URL authentication is retired in token mode.
  * @summary Get progress and only the requesting participant's saved draft
  */
 export const getRoomPathRoomCodeMin = 4;
@@ -44,8 +48,7 @@ export const getRoomPathRoomCodeMax = 6;
 
 
 export const GetRoomParams = zod.object({
-  "roomCode": zod.coerce.string().min(getRoomPathRoomCodeMin).max(getRoomPathRoomCodeMax),
-  "participantId": zod.coerce.string()
+  "roomCode": zod.coerce.string().min(getRoomPathRoomCodeMin).max(getRoomPathRoomCodeMax)
 })
 
 export const getRoomResponseRecommendationsItemMatchScoreMin = 0;
@@ -107,9 +110,13 @@ export const JoinRoomBody = zod.object({
   "nickname": zod.string().max(joinRoomBodyNicknameMax).optional()
 })
 
+export const joinRoomResponseParticipantTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
 export const JoinRoomResponse = zod.object({
   "roomCode": zod.string(),
-  "participantId": zod.string()
+  "participantId": zod.string(),
+  "participantToken": zod.string().regex(joinRoomResponseParticipantTokenRegExp).optional().describe('Returned once on token-mode creation/join; store privately. Absent during legacy/drain.')
 })
 
 

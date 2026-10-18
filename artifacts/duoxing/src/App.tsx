@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { getGetRoomQueryKey, useGetRoom } from './lib/room-auth';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownRight,
@@ -28,10 +29,8 @@ import {
   CuisineAttitude,
   DistanceLimit,
   SpicePreference,
-  getGetRoomQueryKey,
   getHealthCheckQueryKey,
   useCreateRoom,
-  useGetRoom,
   useHealthCheck,
   useJoinRoom,
   useResetRoom,

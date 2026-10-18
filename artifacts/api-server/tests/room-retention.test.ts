@@ -78,9 +78,10 @@ test("a room locked by another transaction is skipped without blocking cleanup",
 
 test("all expired-room API access is rejected before cleanup and cannot alter saved data", async () => {
   const base = "http://localhost:80/api";
+  let token = "";
   async function request(path: string, method = "GET", body?: unknown) {
     const response = await fetch(base + path, {
-      method, headers: { "Content-Type": "application/json" },
+      method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     return { status: response.status, data: await response.json() };
@@ -88,19 +89,20 @@ test("all expired-room API access is rejected before cleanup and cannot alter sa
   const created = await request("/rooms", "POST", {});
   assert.equal(created.status, 201);
   const { roomCode, participantId } = created.data;
+  token = created.data.participantToken ?? "";
   try {
     const payload = { ...saved(participantId), preferenceRevision: 1 };
     assert.equal((await request(`/rooms/${roomCode}/preferences`, "PUT", payload)).status, 200);
     await db.update(rooms).set({ expiresAt: new Date(Date.now() - 1_000) }).where(eq(rooms.code, roomCode));
     for (const [suffix, method, body] of [
-      [`participants/${participantId}`, "GET", undefined],
+      ["me", "GET", undefined],
       ["join", "POST", {}],
       ["preferences", "PUT", payload],
       ["reset", "POST", { participantId }],
       ["recommendations/reroll", "POST", { participantId }],
     ] as const) {
       const result = await request(`/rooms/${roomCode}/${suffix}`, method, body);
-      assert.equal(result.status, 404, suffix);
+      assert.equal(result.status, suffix === "join" || !token ? 404 : 401, suffix);
       assert.equal(result.data.ownDraft, undefined);
       assert.equal(result.data.recommendations, undefined);
     }

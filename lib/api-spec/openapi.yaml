@@ -44,12 +44,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RoomParticipantResponse"
-  /rooms/{roomCode}/participants/{participantId}:
+  /rooms/{roomCode}/me:
     get:
       operationId: getRoom
       tags: [rooms]
       summary: Get progress and only the requesting participant's saved draft
-      description: The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
+      description: Bearer token identifies the caller. Only the caller's draft is returned. Legacy URL authentication is retired in token mode.
+      security: [{ participantBearer: [] }]
       parameters:
         - name: roomCode
           in: path
@@ -58,11 +59,6 @@ paths:
             type: string
             minLength: 4
             maxLength: 6
-        - name: participantId
-          in: path
-          required: true
-          schema:
-            type: string
       responses:
         "200":
           description: Current room state
@@ -116,6 +112,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /rooms/{roomCode}/preferences:
     put:
+      security: [{ participantBearer: [] }]
       operationId: submitPreferences
       tags: [rooms]
       summary: Save a participant's private preferences
@@ -154,6 +151,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /rooms/{roomCode}/reset:
     post:
+      security: [{ participantBearer: [] }]
       operationId: resetRoom
       tags: [rooms]
       summary: Keep private drafts, clear both confirmations and invalidate old results
@@ -186,6 +184,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
   /rooms/{roomCode}/recommendations/reroll:
     post:
+      security: [{ participantBearer: [] }]
       operationId: rerollRecommendations
       tags: [rooms]
       summary: Show the next set of recommendations without changing preferences
@@ -229,6 +228,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 components:
+  securitySchemes:
+    participantBearer:
+      type: http
+      scheme: bearer
+      description: Independent 256-bit anonymous participant token, never a URL parameter.
   schemas:
     HealthStatus:
       type: object
@@ -262,6 +266,10 @@ components:
           type: string
         participantId:
           type: string
+        participantToken:
+          type: string
+          description: Returned once on token-mode creation/join; store privately. Absent during legacy/drain.
+          pattern: "^[a-f0-9]{64}$"
       required: [roomCode, participantId]
     BudgetLevel:
       type: string

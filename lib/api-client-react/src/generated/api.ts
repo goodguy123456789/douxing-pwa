@@ -224,23 +224,21 @@ export const useCreateRoom = <TError = ErrorType<unknown>,
       return useMutation(getCreateRoomMutationOptions(options));
     }
 
-export const getGetRoomUrl = (roomCode: string,
-    participantId: string,) => {
+export const getGetRoomUrl = (roomCode: string,) => {
 
 
 
 
-  return `/api/rooms/${roomCode}/participants/${participantId}`
+  return `/api/rooms/${roomCode}/me`
 }
 
 /**
- * The participant ID is a private bearer credential. Never share it in invitations. No other participant's identity or draft is returned.
+ * Bearer token identifies the caller. Only the caller's draft is returned. Legacy URL authentication is retired in token mode.
  * @summary Get progress and only the requesting participant's saved draft
  */
-export const getRoom = async (roomCode: string,
-    participantId: string, options?: Parameters<typeof customFetch>[1]): Promise<RoomStatus> => {
+export const getRoom = async (roomCode: string, options?: Parameters<typeof customFetch>[1]): Promise<RoomStatus> => {
 
-  return customFetch<RoomStatus>(getGetRoomUrl(roomCode,participantId),
+  return customFetch<RoomStatus>(getGetRoomUrl(roomCode),
   {
     ...options,
     method: 'GET'
@@ -253,31 +251,29 @@ export const getRoom = async (roomCode: string,
 
 
 
-export const getGetRoomQueryKey = (roomCode: string,
-    participantId: string,) => {
+export const getGetRoomQueryKey = (roomCode: string,) => {
     return [
-    `/api/rooms/${roomCode}/participants/${participantId}`
+    `/api/rooms/${roomCode}/me`
     ] as const;
     }
 
 
-export const getGetRoomQueryOptions = <TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(roomCode: string,
-    participantId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetRoomQueryOptions = <TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(roomCode: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRoomQueryKey(roomCode,participantId);
+  const queryKey =  queryOptions?.queryKey ?? getGetRoomQueryKey(roomCode);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRoom>>> = ({ signal }) => getRoom(roomCode,participantId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRoom>>> = ({ signal }) => getRoom(roomCode, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: roomCode !== null && roomCode !== undefined && participantId !== null && participantId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: roomCode !== null && roomCode !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetRoomQueryResult = NonNullable<Awaited<ReturnType<typeof getRoom>>>
@@ -289,12 +285,11 @@ export type GetRoomQueryError = ErrorType<ErrorResponse>
  */
 
 export function useGetRoom<TData = Awaited<ReturnType<typeof getRoom>>, TError = ErrorType<ErrorResponse>>(
- roomCode: string,
-    participantId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ roomCode: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRoom>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetRoomQueryOptions(roomCode,participantId,options)
+  const queryOptions = getGetRoomQueryOptions(roomCode,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

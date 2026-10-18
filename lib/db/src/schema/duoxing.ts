@@ -27,6 +27,7 @@ export const duoxingParticipantsTable = pgTable(
   "duoxing_participants",
   {
     id: text("id").primaryKey(),
+    tokenHash: text("token_hash"),
     roomCode: varchar("room_code", { length: 6 })
       .notNull()
       .references(() => duoxingRoomsTable.code, { onDelete: "cascade" }),
@@ -38,6 +39,7 @@ export const duoxingParticipantsTable = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex("duoxing_participants_token_hash_unique").on(table.tokenHash),
     uniqueIndex("duoxing_participants_room_index_unique").on(
       table.roomCode,
       table.participantIndex,

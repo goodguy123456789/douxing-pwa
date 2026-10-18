@@ -1,9 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 const base = "http://localhost:80/api";
+const credentials = new Map();
 async function request(path, method = "GET", body) {
-  const response = await fetch(base + path, { method, headers: { "Content-Type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
-  return { status: response.status, data: await response.json() };
+  const legacyRead = path.match(/\/participants\/([^/]+)$/);
+  const id = legacyRead?.[1] ?? body?.participantId;
+  const token = credentials.get(id);
+  const response = await fetch(base + (legacyRead ? path.replace(/\/participants\/[^/]+$/, "/me") : path), {
+    method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await response.json();
+  if (data.participantToken) credentials.set(data.participantId, data.participantToken);
+  return { status: response.status, data };
 }
 const preferences = (id, revision = 1, overrides = {}) => ({ participantId: id, preferenceRevision: revision, budget: "unlimited", distance: "unlimited", spice: "any", cuisinePreferences: [], ...overrides });
 async function setup() {

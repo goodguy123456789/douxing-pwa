@@ -336,6 +336,19 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+  // Room credentials are scoped by BOTH room and participant, including dev simulation.
+  // Never use a global token getter: it could authenticate the wrong participant.
+  const roomRequest = resolveUrl(input).match(/^\/api\/rooms\/([A-Z0-9]{4,6})\/(me|preferences|reset|recommendations\/reroll)$/i);
+  if (roomRequest && typeof localStorage !== "undefined" && !headers.has("authorization")) {
+    let bodyId: string | undefined;
+    try { bodyId = typeof init.body === "string" ? JSON.parse(init.body).participantId : undefined; } catch { /* server validates malformed bodies */ }
+    const id = bodyId ?? headers.get("participantId") ?? localStorage.getItem(`duoxing:participant:${roomRequest[1].toUpperCase()}`);
+    if (id) {
+      const token = localStorage.getItem(`duoxing:token:${roomRequest[1].toUpperCase()}:${id}`);
+      // Legacy IDs travel in headers only during the explicitly selected drain phase.
+      headers.set("authorization", `Bearer ${token ?? id}`);
+    }
+  }
 
   if (
     typeof init.body === "string" &&
@@ -367,5 +380,13 @@ export async function customFetch<T = unknown>(
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  const result = await parseSuccessBody(response, responseType, requestInfo);
+  if (/^\/api\/rooms(?:\/[A-Z0-9]{4,6}\/join)?$/i.test(resolveUrl(input)) &&
+      typeof localStorage !== "undefined" && result && typeof result === "object") {
+    const credential = result as { roomCode?: string; participantId?: string; participantToken?: string };
+    if (credential.roomCode && credential.participantId && credential.participantToken) {
+      localStorage.setItem(`duoxing:token:${credential.roomCode}:${credential.participantId}`, credential.participantToken);
+    }
+  }
+  return result as T;
 }

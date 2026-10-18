@@ -27,8 +27,11 @@ import {
 } from "@workspace/db";
 import { getRecommendations } from "../lib/meal-recommendations";
 import { ALGORITHM_VERSION } from "../lib/match-engine";
+import { authenticateParticipant, authMode, issueCredential } from "../lib/participant-auth";
 
 const router: IRouter = Router();
+router.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
+router.use(authenticateParticipant);
 const ROOM_SIZE = 2;
 const ROOM_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -145,6 +148,10 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
 }
 
 router.post("/rooms", async (req, res): Promise<void> => {
+  if (authMode() === "drain") {
+    res.status(503).set("Retry-After", "3600").json(errorResponse("都行正在进行安全升级，暂时不能创建新房间。已有房间仍可继续使用，请稍后再来。"));
+    return;
+  }
   const parsed = CreateRoomBody.safeParse(req.body ?? {});
   if (!parsed.success) {
     res.status(400).json(errorResponse(parsed.error.message));
@@ -155,6 +162,7 @@ router.post("/rooms", async (req, res): Promise<void> => {
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const roomCode = createRoomCode();
     const participantId = randomUUID();
+    const credential = issueCredential();
     try {
       await db.transaction(async (tx) => {
         await tx.insert(duoxingRoomsTable).values({
@@ -163,6 +171,7 @@ router.post("/rooms", async (req, res): Promise<void> => {
         });
         await tx.insert(duoxingParticipantsTable).values({
           id: participantId,
+          tokenHash: credential.tokenHash,
           roomCode,
           participantIndex: 1,
           nickname,
@@ -171,7 +180,7 @@ router.post("/rooms", async (req, res): Promise<void> => {
 
       res
         .status(201)
-        .json(CreateRoomResponse.parse({ roomCode, participantId }));
+        .json(CreateRoomResponse.parse({ roomCode, participantId, participantToken: credential.participantToken }));
       return;
     } catch (error) {
       if (!isUniqueConstraintError(error) || attempt === 7) throw error;
@@ -180,7 +189,7 @@ router.post("/rooms", async (req, res): Promise<void> => {
 });
 
 router.get(
-  "/rooms/:roomCode/participants/:participantId",
+  ["/rooms/:roomCode/me", "/rooms/:roomCode/participants/:participantId"],
   async (req, res): Promise<void> => {
     res.set("Cache-Control", "no-store");
     const params = GetRoomParams.safeParse(req.params);
@@ -191,7 +200,7 @@ router.get(
 
     const status = await getParticipantStatus(
       params.data.roomCode,
-      params.data.participantId,
+      res.locals.participantId,
     );
     if (!status) {
       res.status(404).json(errorResponse("房间或参与者不存在，或房间已过期。"));
@@ -218,6 +227,7 @@ router.post(
 
     const roomCode = params.data.roomCode.toUpperCase();
     const participantId = randomUUID();
+    const credential = issueCredential();
     const nickname = body.data.nickname?.trim() || "参与者 2";
     const outcome = await db.transaction(async (tx) => {
       const [room] = await tx
@@ -232,10 +242,12 @@ router.post(
         .select()
         .from(duoxingParticipantsTable)
         .where(eq(duoxingParticipantsTable.roomCode, roomCode));
+      if (authMode() === "token" && participants.some(p => p.tokenHash === null)) return "legacy";
       if (participants.length >= ROOM_SIZE) return "full";
 
       await tx.insert(duoxingParticipantsTable).values({
         id: participantId,
+        tokenHash: credential.tokenHash,
         roomCode,
         participantIndex: participants.length + 1,
         nickname,
@@ -251,10 +263,14 @@ router.post(
       res.status(409).json(errorResponse("这个房间已经坐满两个人了。"));
       return;
     }
+    if (outcome === "legacy") {
+      res.status(426).json(errorResponse("旧房间已停止接受新身份，请刷新后创建新房间。"));
+      return;
+    }
 
     res
       .status(201)
-      .json(JoinRoomResponse.parse({ roomCode, participantId }));
+      .json(JoinRoomResponse.parse({ roomCode, participantId, participantToken: credential.participantToken }));
   },
 );
 

@@ -43,7 +43,10 @@ test('invitation shares only the room code and cannot reveal the inviter private
     await expect(b.getByTestId('input-preference-nickname')).not.toHaveValue('邀请隐私验收甲');
 
     const status = async (page, id) => page.evaluate(async ({ code, id }) => {
-      const response = await fetch(`/api/rooms/${code}/participants/${id}`);
+      const token = localStorage.getItem(`duoxing:token:${code}:${id}`);
+      const response = await fetch(`/api/rooms/${code}/me`, {
+        headers: { Authorization: `Bearer ${token ?? id}` },
+      });
       return { status: response.status, data: await response.json() };
     }, { code, id });
     const own = await status(a, aId);
@@ -56,7 +59,7 @@ test('invitation shares only the room code and cannot reveal the inviter private
     expect(JSON.stringify(partner.data).includes('邀请隐私验收甲')).toBe(false);
     expect(JSON.stringify(own.data).includes(bId)).toBe(false);
     const unauthorized = await status(b, 'not-a-valid-participant');
-    expect(unauthorized.status).toBe(404);
+    expect(unauthorized.status).toBe(401);
     expect(unauthorized.data.ownDraft).toBeUndefined();
   } finally {
     await Promise.all([aContext.close(), bContext.close()]);
