@@ -14,3 +14,17 @@ mtime_ms = 1792293494051
 storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/d77ec958-c49c-4fd7-b375-ce43db1db496/6e3f11c0-0c01-4243-a881-6f4f27376722"
 storage_version_token = "1792293519657851"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "0NEQS6M6LQv7I7vbiX87S"
+uri = "file://docs/acceptance-v1.2.2.md"
+type = "text"
+title = "都行 v1.2.2 发布前安全验收报告"
+description = "62项测试全部通过；含日志脱敏、过期清理、现有房间兼容性和未关闭风险，不等同生产放行。"
+logical_id = "5edada84-4078-476b-8db4-47e9db75c442"
+content_hash = "sha256:f79c86a68b8c6f5794c44093451304a20f2eb197dd36bcad2f6d975402b3ea11"
+size = 11955
+mtime_ms = 1792294998823
+storage_uri = "gcs://replit-rams-assets-pike/rams/assets/repl:48c8e3da-be8f-4d7f-82ca-ab54093ff444/5edada84-4078-476b-8db4-47e9db75c442/4683f095-e4e4-4c53-b9e0-090cdc659409"
+storage_version_token = "1792295065541931"
+content_type = "text/markdown"
