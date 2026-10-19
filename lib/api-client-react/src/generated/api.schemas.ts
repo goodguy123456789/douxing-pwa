@@ -9,8 +9,20 @@ export interface HealthStatus {
   status: string;
 }
 
+/**
+ * Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED.
+ */
+export type ErrorResponseCode = typeof ErrorResponseCode[keyof typeof ErrorResponseCode];
+
+
+export const ErrorResponseCode = {
+  ROOM_EXPIRED: 'ROOM_EXPIRED',
+} as const;
+
 export interface ErrorResponse {
   error: string;
+  /** Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED. */
+  code?: ErrorResponseCode;
 }
 
 export interface RoomCreateInput {
@@ -165,7 +177,7 @@ export interface RoomStatus {
 }
 
 /**
- * Missing, invalid, cross-room or expired participant token; refresh guidance.
+ * Missing, invalid, cross-room or expired participant token. A matching credential on an expired room read may receive code ROOM_EXPIRED; no private content is returned. Deleted rooms cannot be distinguished from invalid credentials.
  */
 export type AuthenticationRequiredResponse = ErrorResponse;
 

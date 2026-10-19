@@ -8,6 +8,6 @@
 import type { ErrorResponse } from './errorResponse';
 
 /**
- * Missing, invalid, cross-room or expired participant token; refresh guidance.
+ * Missing, invalid, cross-room or expired participant token. A matching credential on an expired room read may receive code ROOM_EXPIRED; no private content is returned. Deleted rooms cannot be distinguished from invalid credentials.
  */
 export type AuthenticationRequiredResponse = ErrorResponse;

@@ -5,7 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ErrorResponseCode } from './errorResponseCode';
 
 export interface ErrorResponse {
   error: string;
+  /** Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED. */
+  code?: ErrorResponseCode;
 }

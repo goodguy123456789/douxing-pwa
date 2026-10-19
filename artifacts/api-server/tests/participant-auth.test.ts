@@ -166,15 +166,35 @@ test("expired tokens cannot read, submit, reset, reroll or join", async () => {
 async function middleware(path: string, mode: string, body?: object, bearer?: string) {
   const before = process.env.DUOXING_AUTH_MODE;
   let status = 200, nextCalled = false;
-  const response = { locals: {}, set() { return this; }, status(code: number) { status = code; return this; }, json() { return this; } };
+  let data: unknown;
+  const response = { locals: {}, set() { return this; }, status(code: number) { status = code; return this; }, json(value: unknown) { data = value; return this; } };
   try {
     process.env.DUOXING_AUTH_MODE = mode;
     await authenticateParticipant({
       path, body, method: body ? "POST" : "GET", get: () => bearer ? `Bearer ${bearer}` : undefined,
     } as unknown as Request, response as unknown as Response, (() => { nextCalled = true; }) as NextFunction);
-    return { status, nextCalled };
+    return { status, nextCalled, data };
   } finally { if (before === undefined) delete process.env.DUOXING_AUTH_MODE; else process.env.DUOXING_AUTH_MODE = before; }
 }
+test("expiry marker requires a matching token and never authorizes expired reads or writes", async () => {
+  // Create and expire a development-only fixture, then inspect safe metadata.
+  const a = await create();
+  await db.update(rooms).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(rooms.code, a.roomCode));
+  const result = await middleware(`/rooms/${a.roomCode}/me`, "token", undefined, a.participantToken);
+  assert.equal(result.status, 401);
+  assert.equal(result.nextCalled, false);
+  assert.deepEqual(result.data, { error: "房间已过期，无法继续使用。", code: "ROOM_EXPIRED" });
+  for (const token of [undefined, a.participantId, "f".repeat(64)]) {
+    const denied = await middleware(`/rooms/${a.roomCode}/me`, "token", undefined, token);
+    assert.equal(denied.status, 401);
+    assert.equal(denied.nextCalled, false);
+    assert.equal((denied.data as { code?: string }).code, undefined);
+  }
+  const write = await middleware(`/rooms/${a.roomCode}/preferences`, "token", preferences(a.participantId), a.participantToken);
+  assert.equal(write.status, 401);
+  assert.equal(write.nextCalled, false);
+  assert.equal((write.data as { code?: string }).code, undefined);
+});
 test("rollback/drain cannot authenticate token participants merely by ID", async () => {
   const a = await create();
   for (const mode of ["legacy", "drain"]) {

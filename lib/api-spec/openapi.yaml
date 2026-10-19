@@ -263,7 +263,7 @@ components:
         type: string
   responses:
     AuthenticationRequired:
-      description: Missing, invalid, cross-room or expired participant token; refresh guidance.
+      description: Missing, invalid, cross-room or expired participant token. A matching credential on an expired room read may receive code ROOM_EXPIRED; no private content is returned. Deleted rooms cannot be distinguished from invalid credentials.
       content:
         application/json:
           schema:
@@ -308,6 +308,10 @@ components:
       properties:
         error:
           type: string
+        code:
+          type: string
+          enum: [ROOM_EXPIRED]
+          description: Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED.
       required: [error]
     RoomCreateInput:
       type: object

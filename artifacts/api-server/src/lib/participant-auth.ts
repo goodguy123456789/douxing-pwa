@@ -72,12 +72,23 @@ export const authenticateParticipant: RequestHandler = async (req, res, next) =>
     res.status(401).json({ error: "身份已失效或页面版本过旧，请联网刷新页面后重试。" });
     return;
   }
-  const [participant] = await db.select({ id: participants.id })
+  const [participant] = await db.select({
+    id: participants.id,
+    active: sql<boolean>`${rooms.expiresAt} > CURRENT_TIMESTAMP`,
+  })
     .from(participants).innerJoin(rooms, eq(rooms.code, participants.roomCode))
-    .where(and(eq(participants.roomCode, match[1].toUpperCase()), eq(participants.tokenHash, hashToken(bearer)),
-      sql`${rooms.expiresAt} > CURRENT_TIMESTAMP`)).limit(1);
+    .where(and(eq(participants.roomCode, match[1].toUpperCase()), eq(participants.tokenHash, hashToken(bearer)))).limit(1);
   if (!participant) {
     res.status(401).json({ error: "身份已失效或房间已过期，请刷新页面后重试。" });
+    return;
+  }
+  if (!participant.active) {
+    // Disclose expiry only to a matching credential on a read. Never return
+    // room contents or let expired credentials reach the protected handlers.
+    res.status(401).json({
+      error: "房间已过期，无法继续使用。",
+      ...(req.method === "GET" ? { code: "ROOM_EXPIRED" } : {}),
+    });
     return;
   }
   // A body ID is only a consistency assertion, never an authentication secret.

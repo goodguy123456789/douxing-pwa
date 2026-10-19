@@ -47,6 +47,8 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { errorMessage, RANKING_DESCRIPTION, RESET_WARNING } from '@/lib/room-interactions';
 import { hasRoomToken, roomReadPolicy, roomRecovery } from '@/lib/room-recovery';
+import { rememberRoom } from '@/lib/recent-room';
+import { ReturnLastRoom } from '@/components/return-last-room';
 import { Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -211,7 +213,7 @@ function Home() {
   const handleCreate = () => {
     createRoom.mutate({ data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
       onSuccess: (room) => {
-        localStorage.setItem(participantKey(room.roomCode), room.participantId);
+        rememberRoom(room);
         setLocation(
           `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
         );
@@ -225,7 +227,7 @@ function Home() {
     if (normalized.length < 4 || normalized.length > 6) return;
     joinRoom.mutate({ roomCode: normalized, data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
       onSuccess: (room) => {
-        localStorage.setItem(participantKey(room.roomCode), room.participantId);
+        rememberRoom(room);
         setLocation(
           `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
         );
@@ -280,6 +282,7 @@ function Home() {
               <button type="button" onClick={() => setMode('join')} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[14px] font-semibold text-[#675d50] transition hover:border-[#e6b27a]" data-testid="button-open-join">
                 <Link2 size={16} /> 我有房间码
               </button>
+              <ReturnLastRoom onCreate={handleCreate} creating={createRoom.isPending} />
             </>
           ) : (
             <form onSubmit={handleJoin}>
@@ -387,6 +390,12 @@ function RoomPage() {
   const draftKey = room ? `${roomCode}:${participantId}:${room.preferenceRevision}` : '';
 
   useEffect(() => {
+    if (room?.roomCode === roomCode && room.participantId === participantId && !roomQuery.isError) {
+      rememberRoom({ roomCode, participantId });
+    }
+  }, [room?.roomCode, room?.participantId, roomCode, participantId, roomQuery.isError]);
+
+  useEffect(() => {
     if (!room || hydratedDraft.current === draftKey) return;
     const draft = room.ownDraft;
     setNickname(draft?.nickname ?? '');
@@ -402,7 +411,7 @@ function RoomPage() {
     setJoinError('');
     joinRoom.mutate({ roomCode, data: joinNickname.trim() ? { nickname: joinNickname.trim() } : undefined }, {
       onSuccess: (response) => {
-        localStorage.setItem(participantKey(roomCode), response.participantId);
+        rememberRoom({ roomCode, participantId: response.participantId });
         setParticipantId(response.participantId);
       },
       onError: (error) => setJoinError(errorMessage(error, '这个房间暂时无法加入，可能已满或已过期。')),
@@ -606,7 +615,7 @@ function RoomPage() {
               else if (recovery.action === 'retry') void roomQuery.refetch();
               else createReplacementRoom.mutate({ data: undefined }, {
                 onSuccess: (nextRoom) => {
-                  localStorage.setItem(participantKey(nextRoom.roomCode), nextRoom.participantId);
+                  rememberRoom(nextRoom);
                   setLocation(`/room/${nextRoom.roomCode}`);
                 },
               });

@@ -15,6 +15,7 @@ export * from './cuisineAttitude';
 export * from './cuisinePreference';
 export * from './distanceLimit';
 export * from './errorResponse';
+export * from './errorResponseCode';
 export * from './healthStatus';
 export * from './identityMismatchResponse';
 export * from './participantInput';
