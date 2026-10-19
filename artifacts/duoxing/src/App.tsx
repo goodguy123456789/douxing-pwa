@@ -46,6 +46,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { errorMessage, RANKING_DESCRIPTION, RESET_WARNING } from '@/lib/room-interactions';
+import { hasRoomToken, roomReadPolicy, roomRecovery } from '@/lib/room-recovery';
 import { Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 
 const queryClient = new QueryClient();
@@ -362,15 +363,24 @@ function RoomPage() {
     );
   }, [roomCode]);
 
+  const hasToken = Boolean(participantId && hasRoomToken(roomCode, participantId));
   const roomQuery = useGetRoom(roomCode, participantId, {
-    query: { queryKey: getGetRoomQueryKey(roomCode, participantId), enabled: Boolean(roomCode && participantId), refetchInterval: 2200 },
+    query: {
+      queryKey: getGetRoomQueryKey(roomCode, participantId),
+      enabled: Boolean(roomCode && participantId && hasToken),
+      ...roomReadPolicy,
+      refetchInterval: (query) => query.state.error ? false : 2200,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
   });
+  const createReplacementRoom = useCreateRoom();
   const joinRoom = useJoinRoom();
   const submitPreferences = useSubmitPreferences();
   const resetRoom = useResetRoom();
   const rerollRecommendations = useRerollRecommendations();
   const room = roomQuery.data;
-  const needsAuthRefresh = roomQuery.isError && [401, 426].includes(Number((roomQuery.error as { status?: number })?.status));
+  const recovery = roomRecovery(participantId, hasToken, roomQuery.error);
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
   const hydratedDraft = useRef<string>('');
@@ -586,22 +596,48 @@ function RoomPage() {
               </button>
             </form>
           </section>
+        ) : recovery && (recovery.action !== 'retry' || !room) ? (
+          <section className="surface page-enter mt-9 rounded-[28px] p-6 text-center" role="alert" data-testid="state-room-error">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#fce9df] text-[#bd684e]"><CircleHelp size={25} /></div>
+            <h1 className="mt-4 text-xl font-extrabold">{recovery.title}</h1>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">{recovery.message}</p>
+            <button type="button" disabled={roomQuery.isFetching || createReplacementRoom.isPending} onClick={() => {
+              if (recovery.action === 'refresh') window.location.reload();
+              else if (recovery.action === 'retry') void roomQuery.refetch();
+              else createReplacementRoom.mutate({ data: undefined }, {
+                onSuccess: (nextRoom) => {
+                  localStorage.setItem(participantKey(nextRoom.roomCode), nextRoom.participantId);
+                  setLocation(`/room/${nextRoom.roomCode}`);
+                },
+              });
+            }} className="mt-5 min-h-12 w-full rounded-2xl bg-[#f28c3a] px-5 text-sm font-bold text-white disabled:opacity-55" data-testid="button-retry-room">
+              {recovery.action === 'create' ? (createReplacementRoom.isPending ? '正在创建…' : '创建新饭局') : recovery.action === 'refresh' ? '刷新页面' : '再试一次'}
+            </button>
+            {createReplacementRoom.isError && <p className="mt-3 text-sm text-[#bd594b]">{errorMessage(createReplacementRoom.error, '暂时无法创建，请稍后再试。')}</p>}
+            <button type="button" onClick={() => setLocation('/')} className="mt-3 block min-h-11 w-full text-sm font-semibold text-[#e47f30]" data-testid="button-home-from-error">回到首页</button>
+          </section>
         ) : roomQuery.isLoading ? (
           <section className="mt-7 space-y-4" aria-label="正在加载房间" data-testid="state-room-loading">
             <div className="h-8 w-28 animate-pulse rounded-full bg-[#e9dfcc]" />
             <div className="surface h-40 animate-pulse rounded-[28px] bg-[#fffaf0]" />
             <div className="surface h-48 animate-pulse rounded-[28px] bg-[#fffaf0]" />
           </section>
-        ) : roomQuery.isError || !room ? (
+        ) : !room ? (
           <section className="surface page-enter mt-9 rounded-[28px] p-6 text-center" data-testid="state-room-error">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#fce9df] text-[#bd684e]"><CircleHelp size={25} /></div>
             <h1 className="mt-4 text-xl font-extrabold">房间暂时打不开</h1>
             <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">{errorMessage(roomQuery.error, '可能是房间码不对、房间已满，或邀请已经过期。')}</p>
-            <button type="button" onClick={() => needsAuthRefresh ? window.location.reload() : roomQuery.refetch()} className="mt-5 h-11 rounded-xl border border-[#e8dfcf] px-5 text-sm font-bold text-[#6a5d4d]" data-testid="button-retry-room">{needsAuthRefresh ? '刷新页面' : '再试一次'}</button>
+            <button type="button" onClick={() => roomQuery.refetch()} className="mt-5 h-11 rounded-xl border border-[#e8dfcf] px-5 text-sm font-bold text-[#6a5d4d]" data-testid="button-retry-room">再试一次</button>
             <button type="button" onClick={() => setLocation('/')} className="mt-3 block w-full text-sm font-semibold text-[#e47f30]" data-testid="button-home-from-error">回到首页</button>
           </section>
         ) : (
           <div className="page-enter">
+            {recovery?.action === 'retry' && (
+              <div className="surface mt-5 rounded-2xl p-4 text-sm" role="alert" data-testid="error-room-read">
+                <p className="text-[#8e8372]">{recovery.message} 已保留本页内容。</p>
+                <button type="button" disabled={roomQuery.isFetching} onClick={() => void roomQuery.refetch()} className="mt-2 min-h-11 rounded-xl border border-[#e8dfcf] px-4 font-bold text-[#b96020] disabled:opacity-55">再试一次</button>
+              </div>
+            )}
             <div className="mb-5 mt-5 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold tracking-[.16em] text-[#a99b87]">ROOM · {room.roomCode}</p>

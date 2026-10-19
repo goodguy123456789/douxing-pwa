@@ -82,11 +82,13 @@ test('invitation shares only the room code and cannot reveal the inviter private
     expect((await status(a, aId)).data.participantCount).toBe(2);
     expect(urls.some(url => url.includes(aToken) || url.includes(bToken))).toBe(false);
     expect(urls.some(url => /\/participants\//.test(url))).toBe(false);
-    // Invalid local credentials get a friendly update prompt, not an automatic third join.
+    // Lost credentials cannot be recovered by refreshing or joining a third time.
     await b.evaluate(({ code, id }) => localStorage.removeItem(`duoxing:token:${code}:${id}`), { code, id: bId });
     await b.reload();
-    await expect(b.getByTestId('state-room-error')).toContainText('刷新');
-    await expect(b.getByTestId('button-retry-room')).toHaveText('刷新页面');
+    await expect(b.getByTestId('state-room-error')).toContainText('无法恢复房间身份');
+    await expect(b.getByTestId('state-room-error')).toContainText('无法自动恢复原来的参与者身份');
+    await expect(b.getByTestId('button-retry-room')).toHaveText('创建新饭局');
+    await expect(b.getByTestId('state-room-loading')).toHaveCount(0);
     await expect(b.getByTestId('state-room-error')).not.toContainText(/HTTP|Zod|invalid_type/);
     expect((await status(a, aId)).data.participantCount).toBe(2);
   } finally {
