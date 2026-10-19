@@ -391,9 +391,9 @@ function RoomPage() {
 
   useEffect(() => {
     if (room?.roomCode === roomCode && room.participantId === participantId && !roomQuery.isError) {
-      rememberRoom({ roomCode, participantId });
+      rememberRoom({ roomCode, participantId, expiresAt: room.expiresAt });
     }
-  }, [room?.roomCode, room?.participantId, roomCode, participantId, roomQuery.isError]);
+  }, [room?.roomCode, room?.participantId, room?.expiresAt, roomCode, participantId, roomQuery.isError]);
 
   useEffect(() => {
     if (!room || hydratedDraft.current === draftKey) return;
@@ -411,7 +411,7 @@ function RoomPage() {
     setJoinError('');
     joinRoom.mutate({ roomCode, data: joinNickname.trim() ? { nickname: joinNickname.trim() } : undefined }, {
       onSuccess: (response) => {
-        rememberRoom({ roomCode, participantId: response.participantId });
+        rememberRoom({ roomCode, participantId: response.participantId, expiresAt: response.expiresAt });
         setParticipantId(response.participantId);
       },
       onError: (error) => setJoinError(errorMessage(error, '这个房间暂时无法加入，可能已满或已过期。')),

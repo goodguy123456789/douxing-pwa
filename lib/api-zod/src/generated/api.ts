@@ -38,6 +38,7 @@ export const createRoomResponseParticipantTokenRegExp = new RegExp('^[a-f0-9]{64
 export const CreateRoomResponse = zod.object({
   "roomCode": zod.string(),
   "participantId": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantToken": zod.string().regex(createRoomResponseParticipantTokenRegExp).optional().describe('Returned once on token-mode creation/join; store privately. Absent during legacy/drain.')
 })
 
@@ -62,6 +63,7 @@ export const getRoomResponseRecommendationsItemMatchScoreMax = 100;
 
 export const GetRoomResponse = zod.object({
   "roomCode": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
   "submittedCount": zod.number().int(),
@@ -124,6 +126,7 @@ export const joinRoomResponseParticipantTokenRegExp = new RegExp('^[a-f0-9]{64}$
 export const JoinRoomResponse = zod.object({
   "roomCode": zod.string(),
   "participantId": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantToken": zod.string().regex(joinRoomResponseParticipantTokenRegExp).optional().describe('Returned once on token-mode creation/join; store privately. Absent during legacy/drain.')
 })
 
@@ -165,6 +168,7 @@ export const submitPreferencesResponseRecommendationsItemMatchScoreMax = 100;
 
 export const SubmitPreferencesResponse = zod.object({
   "roomCode": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
   "submittedCount": zod.number().int(),
@@ -220,6 +224,7 @@ export const resetRoomResponseRecommendationsItemMatchScoreMax = 100;
 
 export const ResetRoomResponse = zod.object({
   "roomCode": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
   "submittedCount": zod.number().int(),
@@ -275,6 +280,7 @@ export const rerollRecommendationsResponseRecommendationsItemMatchScoreMax = 100
 
 export const RerollRecommendationsResponse = zod.object({
   "roomCode": zod.string(),
+  "expiresAt": zod.coerce.date().describe('Server-owned room expiry, for display only; never authorizes access.'),
   "participantId": zod.string().nullable(),
   "participantCount": zod.number().int(),
   "submittedCount": zod.number().int(),

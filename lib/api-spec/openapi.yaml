@@ -332,11 +332,15 @@ components:
           type: string
         participantId:
           type: string
+        expiresAt:
+          type: string
+          format: date-time
+          description: Server-owned room expiry, for display only; never authorizes access.
         participantToken:
           type: string
           description: Returned once on token-mode creation/join; store privately. Absent during legacy/drain.
           pattern: "^[a-f0-9]{64}$"
-      required: [roomCode, participantId]
+      required: [roomCode, participantId, expiresAt]
     BudgetLevel:
       type: string
       enum: ["1", "2", "3", unlimited]
@@ -421,6 +425,10 @@ components:
       properties:
         roomCode:
           type: string
+        expiresAt:
+          type: string
+          format: date-time
+          description: Server-owned room expiry, for display only; never authorizes access.
         participantId:
           type: ["string", "null"]
         participantCount:
@@ -448,7 +456,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RestaurantRecommendation"
-      required: [roomCode, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, ownDraft, preferenceRevision, algorithmVersion, hasMoreRecommendations, candidateCount, state, recommendations]
+      required: [roomCode, expiresAt, participantId, participantCount, submittedCount, requiredParticipantCount, hasSubmitted, ownDraft, preferenceRevision, algorithmVersion, hasMoreRecommendations, candidateCount, state, recommendations]
     PrivatePreferenceDraft:
       type: [object, "null"]
       description: Last saved preferences of the requesting participant only; null before their first submission. Not a current-round confirmation.

@@ -4,4 +4,4 @@
 - [隐私与错误排查](private-error-observability.md) — 不为排错恢复原始请求错误文本；数据库和解析器错误可能携带完整私人输入。
 - [房间数据清理保证](room-retention-guarantees.md) — 到期拒绝访问不等于立即删除；Autoscale零实例期间需要独立调度才能保证删除时限。
 - [匿名认证切换约束](auth-transition-policy.md) — 快速切换无需等24小时；生产迁移、drain、精确作废和Token发布须逐阶段审批。
-- [返回饭局的恢复边界](return-room-policy.md) — 恢复只能验证已有凭证；已清理房间与失效凭证无法可靠区分，旧身份也没有访问时间。
+- [返回饭局的恢复边界](return-room-policy.md) — 本地过期时间仅供提示，进入仍须Bearer验证；旧身份没有访问时间，不能推断历史顺序。

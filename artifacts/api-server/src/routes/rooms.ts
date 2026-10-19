@@ -131,6 +131,7 @@ async function getParticipantStatus(roomCode: string, participantId: string) {
 
   return GetRoomResponse.parse({
     roomCode,
+    expiresAt: room.expiresAt.toISOString(),
     participantId,
     participantCount: participants.length,
     submittedCount,
@@ -164,11 +165,11 @@ router.post("/rooms", async (req, res): Promise<void> => {
     const participantId = randomUUID();
     const credential = issueCredential();
     try {
-      await db.transaction(async (tx) => {
-        await tx.insert(duoxingRoomsTable).values({
+      const expiresAt = await db.transaction(async (tx) => {
+        const [createdRoom] = await tx.insert(duoxingRoomsTable).values({
           code: roomCode,
           expiresAt: new Date(Date.now() + ROOM_LIFETIME_MS),
-        });
+        }).returning({ expiresAt: duoxingRoomsTable.expiresAt });
         await tx.insert(duoxingParticipantsTable).values({
           id: participantId,
           tokenHash: credential.tokenHash,
@@ -176,11 +177,12 @@ router.post("/rooms", async (req, res): Promise<void> => {
           participantIndex: 1,
           nickname,
         });
+        return createdRoom.expiresAt;
       });
 
       res
         .status(201)
-        .json(CreateRoomResponse.parse({ roomCode, participantId, participantToken: credential.participantToken }));
+        .json(CreateRoomResponse.parse({ roomCode, participantId, expiresAt: expiresAt.toISOString(), participantToken: credential.participantToken }));
       return;
     } catch (error) {
       if (!isUniqueConstraintError(error) || attempt === 7) throw error;
@@ -254,7 +256,7 @@ router.post(
         participantIndex: participants.length + 1,
         nickname,
       });
-      return "joined";
+      return { expiresAt: room.expiresAt };
     });
 
     if (outcome === "not_found") {
@@ -272,7 +274,7 @@ router.post(
 
     res
       .status(201)
-      .json(JoinRoomResponse.parse({ roomCode, participantId, participantToken: credential.participantToken }));
+      .json(JoinRoomResponse.parse({ roomCode, participantId, expiresAt: outcome.expiresAt.toISOString(), participantToken: credential.participantToken }));
   },
 );
 

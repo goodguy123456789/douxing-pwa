@@ -3,9 +3,14 @@ import { useLocation } from 'wouter';
 import { LoaderCircle } from 'lucide-react';
 import { readRoom } from '@/lib/room-auth';
 import { hasRoomToken, roomRecovery, type RoomRecovery } from '@/lib/room-recovery';
-import { isExpiredRoomError, recentRoom, rememberRoom } from '@/lib/recent-room';
+import { hasExpiredHint, isExpiredRoomError, recentRoom, rememberRoom } from '@/lib/recent-room';
 
 type Notice = { title: string; message: string; action?: RoomRecovery['action'] };
+const expiredNotice: Notice = {
+  title: '上个饭局已经过期啦',
+  message: '上一次的饭局已经结束，可以创建一个新的饭局。',
+  action: 'create',
+};
 
 export function ReturnLastRoom({ onCreate, creating }: { onCreate: () => void; creating: boolean }) {
   const [, navigate] = useLocation();
@@ -20,6 +25,12 @@ export function ReturnLastRoom({ onCreate, creating }: { onCreate: () => void; c
     const entry = recentRoom();
     if (!entry) {
       setNotice({ title: '还没有上一次的饭局', message: '创建或加入一个饭局后，下次就能从这里快速回来啦。' });
+      return;
+    }
+    // This short-circuit is a UI hint only. A future/missing local date never
+    // skips the authenticated server read below, even if local data is edited.
+    if (hasExpiredHint(entry)) {
+      setNotice(expiredNotice);
       return;
     }
     if (!hasRoomToken(entry.roomCode, entry.participantId)) {
@@ -37,12 +48,12 @@ export function ReturnLastRoom({ onCreate, creating }: { onCreate: () => void; c
         setNotice(roomRecovery(entry.participantId, true, { status: 401 }));
         return;
       }
-      rememberRoom(entry);
+      rememberRoom({ roomCode: room.roomCode, participantId: entry.participantId, expiresAt: room.expiresAt });
       navigate(`/room/${entry.roomCode}`);
     } catch (error) {
       if (active.current !== controller) return;
       if (isExpiredRoomError(error)) {
-        setNotice({ title: '上个饭局已经过期啦 🕒', message: '上一次的饭局已经结束，可以创建一个新的饭局。', action: 'create' });
+        setNotice(expiredNotice);
       } else {
         const status = Number((error as { status?: number })?.status);
         if ([401, 403, 404].includes(status)) {

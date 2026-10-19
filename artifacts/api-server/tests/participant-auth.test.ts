@@ -26,7 +26,7 @@ async function create() {
   const result = await request("/rooms", undefined, "POST", {});
   assert.equal(result.status, 201);
   fixtures.push(result.data.roomCode);
-  return result.data as { roomCode: string; participantId: string; participantToken: string };
+  return result.data as { roomCode: string; participantId: string; participantToken: string; expiresAt: string };
 }
 async function pair() {
   const a = await create();
@@ -38,6 +38,18 @@ const preferences = (id?: string) => ({
   ...(id ? { participantId: id } : {}), preferenceRevision: 1, nickname: "仅本人可见",
   budget: "2", distance: "3", spice: "none",
   cuisinePreferences: [{ cuisine: "日料", attitude: "love" }],
+});
+
+test("creation, joining and authenticated recovery return the database room expiry unchanged", async () => {
+  const { a, b, path } = await pair();
+  const [row] = await db.select({ expiresAt: rooms.expiresAt }).from(rooms).where(eq(rooms.code, a.roomCode));
+  const expected = row.expiresAt.toISOString();
+  assert.equal(a.expiresAt, expected);
+  assert.equal(b.expiresAt, expected);
+  const recovered = await request(`${path}/me`, a.participantToken);
+  assert.equal(recovered.status, 200);
+  assert.equal(recovered.data.expiresAt, expected);
+  assert.equal((await request(`${path}/me`)).data.expiresAt, undefined);
 });
 
 test("tokens have 256 random bits, are independent, and storage uses SHA-256", () => {

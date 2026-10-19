@@ -9,6 +9,8 @@
 export interface RoomParticipantResponse {
   roomCode: string;
   participantId: string;
+  /** Server-owned room expiry, for display only; never authorizes access. */
+  expiresAt: Date;
   /**
      * Returned once on token-mode creation/join; store privately. Absent during legacy/drain.
      * @pattern ^[a-f0-9]{64}$

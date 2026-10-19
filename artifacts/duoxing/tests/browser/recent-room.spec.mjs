@@ -12,7 +12,7 @@ async function fixture(page, request) {
   await page.evaluate(entry => {
     localStorage.setItem(`duoxing:participant:${entry.roomCode}`, entry.participantId);
     localStorage.setItem(`duoxing:token:${entry.roomCode}:${entry.participantId}`, entry.participantToken);
-    localStorage.setItem('duoxing:recent-room', JSON.stringify({ roomCode: entry.roomCode, participantId: entry.participantId }));
+    localStorage.setItem('duoxing:recent-room', JSON.stringify({ roomCode: entry.roomCode, participantId: entry.participantId, expiresAt: entry.expiresAt }));
   }, entry);
   return entry;
 }
@@ -40,6 +40,10 @@ test('two real participants return to a full room without rejoining, still submi
     const aId = await a.evaluate(key => localStorage.getItem(key), participantKey(code));
     const bId = await b.evaluate(key => localStorage.getItem(key), participantKey(code));
     expect(Boolean(aId && bId && aId !== bId)).toBe(true);
+    for (const page of [a, b]) {
+      const server = await ownStatus(page, code);
+      expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).expiresAt, recentKey)).toBe(server.data.expiresAt);
+    }
     let joins = 0;
     for (const page of [a, b]) page.on('request', req => { if (new URL(req.url()).pathname.endsWith('/join')) joins++; });
     for (const page of [a, b]) {
@@ -99,6 +103,7 @@ test('empty, pre-upgrade identity, missing token and real invalid token have dis
   await page.getByTestId('button-return-room').click();
   await expect(page.getByTestId('form-preferences')).toBeVisible();
   expect((await ownStatus(page, entry.roomCode)).data.participantCount).toBe(1);
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).expiresAt, recentKey)).toBe(entry.expiresAt);
   await page.goto('/');
   let reads = 0, joins = 0;
   page.on('request', req => {
@@ -136,9 +141,11 @@ test('network and 503 retry preserve credentials; 426 asks to refresh instead of
     : route.fulfill({ status: Number(kind), contentType: 'application/json', body: '{"error":"暂不可用"}' }));
   await page.getByTestId('button-return-room').click();
   await expect(page.getByTestId('notice-return-room')).toContainText('暂时无法连接，请稍后再试');
+  await expect(page.getByTestId('notice-return-room')).not.toContainText('过期');
   kind = '503';
   await page.getByTestId('button-return-action').click();
   await expect(page.getByTestId('notice-return-room')).toContainText('暂时无法连接，请稍后再试');
+  await expect(page.getByTestId('notice-return-room')).not.toContainText('过期');
   expect(await page.evaluate(entry => localStorage.getItem(`duoxing:token:${entry.roomCode}:${entry.participantId}`) === entry.participantToken, entry)).toBe(true);
   kind = '426';
   await page.getByTestId('button-return-action').click();
@@ -165,4 +172,49 @@ test('an unresponsive validation request times out visibly and allows retry', as
   if (held) await held.abort().catch(() => {});
   await page.getByTestId('button-return-action').click();
   await expect(page.getByTestId('form-preferences')).toBeVisible();
+});
+
+test('stored server expiry gives an ended-room hint without reading or joining a potentially cleaned room', async ({ page, request }) => {
+  const entry = await fixture(page, request);
+  await page.clock.setFixedTime(new Date(Date.parse(entry.expiresAt) + 1000));
+  let reads = 0, joins = 0;
+  page.on('request', req => {
+    const path = new URL(req.url()).pathname;
+    if (path.endsWith('/me')) reads++;
+    if (path.endsWith('/join')) joins++;
+  });
+  await page.getByTestId('button-return-room').click();
+  await expect(page.getByTestId('notice-return-room')).toContainText('上个饭局已经过期啦');
+  await expect(page.getByTestId('button-return-action')).toHaveText('创建新饭局');
+  expect(new URL(page.url()).pathname).toBe('/');
+  expect(reads).toBe(0);
+  expect(joins).toBe(0);
+  expect(await page.evaluate(entry => localStorage.getItem(`duoxing:token:${entry.roomCode}:${entry.participantId}`) === entry.participantToken, entry)).toBe(true);
+});
+
+test('local future or malformed expiry never skips Bearer verification and recovery refreshes the saved server date', async ({ page, request }) => {
+  const entry = await fixture(page, request);
+  const path = `/api/rooms/${entry.roomCode}/me`;
+  let reads = 0;
+  page.on('request', req => { if (new URL(req.url()).pathname === path) reads++; });
+  await page.evaluate(key => {
+    const saved = JSON.parse(localStorage.getItem(key));
+    saved.expiresAt = '2099-01-01T00:00:00.000Z';
+    localStorage.setItem(key, JSON.stringify(saved));
+    localStorage.setItem(`duoxing:token:${saved.roomCode}:${saved.participantId}`, 'f'.repeat(64));
+  }, recentKey);
+  await page.getByTestId('button-return-room').click();
+  await expect(page.getByTestId('notice-return-room')).toContainText('无法恢复房间身份');
+  expect(reads).toBe(1);
+  expect(new URL(page.url()).pathname).toBe('/');
+  await page.evaluate(({ entry, key }) => {
+    const saved = JSON.parse(localStorage.getItem(key));
+    saved.expiresAt = { broken: true };
+    localStorage.setItem(key, JSON.stringify(saved));
+    localStorage.setItem(`duoxing:token:${entry.roomCode}:${entry.participantId}`, entry.participantToken);
+  }, { entry, key: recentKey });
+  await page.getByTestId('button-return-room').click();
+  await expect(page.getByTestId('form-preferences')).toBeVisible();
+  expect(reads >= 2).toBe(true);
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).expiresAt, recentKey)).toBe(entry.expiresAt);
 });

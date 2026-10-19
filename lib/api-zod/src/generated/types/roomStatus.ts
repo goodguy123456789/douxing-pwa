@@ -11,6 +11,8 @@ import type { RoomStatusState } from './roomStatusState';
 
 export interface RoomStatus {
   roomCode: string;
+  /** Server-owned room expiry, for display only; never authorizes access. */
+  expiresAt: Date;
   /** @nullable */
   participantId: string | null;
   participantCount: number;
