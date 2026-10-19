@@ -26,3 +26,6 @@ channel = "stable-25_05"
 
 [userenv.development]
 DUOXING_AUTH_MODE = "token"
+
+[userenv.production]
+DUOXING_AUTH_MODE = "drain"
