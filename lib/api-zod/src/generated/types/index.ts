@@ -24,6 +24,7 @@ export * from './privatePreferenceDraft';
 export * from './rerollRecommendationsInput';
 export * from './restaurantRecommendation';
 export * from './roomCreateInput';
+export * from './roomCreateInputDurationHours';
 export * from './roomParticipantResponse';
 export * from './roomResetInput';
 export * from './roomStatus';

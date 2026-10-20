@@ -7,7 +7,7 @@
  */
 
 /**
- * Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED.
+ * Safe expiry marker for an expired room join or an authenticated expired room read; never includes private data.
  */
 export type ErrorResponseCode = typeof ErrorResponseCode[keyof typeof ErrorResponseCode];
 

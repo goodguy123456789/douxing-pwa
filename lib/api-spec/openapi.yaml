@@ -311,11 +311,15 @@ components:
         code:
           type: string
           enum: [ROOM_EXPIRED]
-          description: Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED.
+          description: Safe expiry marker for an expired room join or an authenticated expired room read; never includes private data.
       required: [error]
     RoomCreateInput:
       type: object
       properties:
+        durationHours:
+          type: integer
+          enum: [1, 3, 12, 24]
+          description: Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt.
         nickname:
           type: string
           maxLength: 24

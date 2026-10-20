@@ -10,7 +10,7 @@ export interface HealthStatus {
 }
 
 /**
- * Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED.
+ * Safe expiry marker for an expired room join or an authenticated expired room read; never includes private data.
  */
 export type ErrorResponseCode = typeof ErrorResponseCode[keyof typeof ErrorResponseCode];
 
@@ -21,11 +21,26 @@ export const ErrorResponseCode = {
 
 export interface ErrorResponse {
   error: string;
-  /** Optional safe error marker; only a matching credential on an expired room read receives ROOM_EXPIRED. */
+  /** Safe expiry marker for an expired room join or an authenticated expired room read; never includes private data. */
   code?: ErrorResponseCode;
 }
 
+/**
+ * Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt.
+ */
+export type RoomCreateInputDurationHours = typeof RoomCreateInputDurationHours[keyof typeof RoomCreateInputDurationHours];
+
+
+export const RoomCreateInputDurationHours = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_12: 12,
+  NUMBER_24: 24,
+} as const;
+
 export interface RoomCreateInput {
+  /** Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt. */
+  durationHours?: RoomCreateInputDurationHours;
   /** @maxLength 24 */
   nickname?: string;
 }

@@ -5,8 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RoomCreateInputDurationHours } from './roomCreateInputDurationHours';
 
 export interface RoomCreateInput {
+  /** Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt. */
+  durationHours?: RoomCreateInputDurationHours;
   /** @maxLength 24 */
   nickname?: string;
 }

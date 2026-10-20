@@ -39,7 +39,15 @@ export function ReturnLastRoom({ onCreate, creating }: { onCreate: () => void; c
     }
     const controller = new AbortController();
     active.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    const timeout = window.setTimeout(() => {
+      if (active.current !== controller) return;
+      // Finish the visible attempt even if a stalled transport takes longer
+      // to reject its aborted fetch; a late response cannot navigate afterward.
+      active.current = null;
+      controller.abort();
+      setLoading(false);
+      setNotice({ title: '暂时无法连接，请稍后再试', message: '身份凭证仍保留在当前浏览器中，可以稍后重试。', action: 'retry' });
+    }, 10_000);
     setLoading(true);
     try {
       const room = await readRoom(entry.roomCode, entry.participantId, controller.signal);

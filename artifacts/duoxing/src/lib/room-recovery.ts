@@ -4,13 +4,24 @@ export type RoomRecovery = {
   action: 'create' | 'refresh' | 'retry';
 };
 
+export const endedRoom: RoomRecovery = {
+  title: '这次饭局已经结束啦 🍃',
+  message: '想再商量吃什么？随时开启一个新的饭局。',
+  action: 'create',
+};
+
 export function hasRoomToken(code: string, id: string): boolean {
   return Boolean(id && localStorage.getItem(`duoxing:token:${code.toUpperCase()}:${id}`));
 }
 
-export function roomRecovery(id: string, hasToken: boolean, error: unknown): RoomRecovery | null {
+export function roomRecovery(id: string, hasToken: boolean, error: unknown, expiredHint = false): RoomRecovery | null {
   if (!id) return null; // A new invitee must still be allowed to join.
   const status = Number((error as { status?: number } | null)?.status);
+  // A cleared room no longer has a server expiry marker. A previously stored
+  // server date may improve this denial's wording, never authorize a read.
+  if (hasToken && status === 401 && (expiredHint || (error as { data?: { code?: string } })?.data?.code === 'ROOM_EXPIRED')) {
+    return endedRoom;
+  }
   if (!hasToken || status === 401) {
     return {
       title: '无法恢复房间身份',

@@ -33,7 +33,6 @@ const router: IRouter = Router();
 router.use((_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
 router.use(authenticateParticipant);
 const ROOM_SIZE = 2;
-const ROOM_LIFETIME_MS = 24 * 60 * 60 * 1000;
 const ROOM_CODE_CHARACTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 function createRoomCode(): string {
@@ -154,8 +153,8 @@ router.post("/rooms", async (req, res): Promise<void> => {
     return;
   }
   const parsed = CreateRoomBody.safeParse(req.body ?? {});
-  if (!parsed.success) {
-    res.status(400).json(errorResponse(parsed.error.message));
+  if (!parsed.success || req.body === null || Object.prototype.hasOwnProperty.call(req.body ?? {}, "expiresAt")) {
+    res.status(400).json(errorResponse("请选择1、3、12或24小时的饭局保留时间，不支持自定义结束时间。"));
     return;
   }
 
@@ -166,9 +165,11 @@ router.post("/rooms", async (req, res): Promise<void> => {
     const credential = issueCredential();
     try {
       const expiresAt = await db.transaction(async (tx) => {
+        const createdAt = new Date();
         const [createdRoom] = await tx.insert(duoxingRoomsTable).values({
           code: roomCode,
-          expiresAt: new Date(Date.now() + ROOM_LIFETIME_MS),
+          createdAt,
+          expiresAt: new Date(createdAt.getTime() + (parsed.data.durationHours ?? 24) * 60 * 60 * 1000),
         }).returning({ expiresAt: duoxingRoomsTable.expiresAt });
         await tx.insert(duoxingParticipantsTable).values({
           id: participantId,
@@ -238,7 +239,8 @@ router.post(
         .where(eq(duoxingRoomsTable.code, roomCode))
         .for("update")
         .limit(1);
-      if (!room || room.expiresAt <= new Date()) return "not_found";
+      if (!room) return "not_found";
+      if (room.expiresAt <= new Date()) return "expired";
 
       const participants = await tx
         .select()
@@ -261,6 +263,10 @@ router.post(
 
     if (outcome === "not_found") {
       res.status(404).json(errorResponse("没有找到这个房间，检查一下房间码。"));
+      return;
+    }
+    if (outcome === "expired") {
+      res.status(404).json({ error: "这次饭局已经结束啦", code: "ROOM_EXPIRED" });
       return;
     }
     if (outcome === "full") {

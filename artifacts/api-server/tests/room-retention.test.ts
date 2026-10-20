@@ -62,6 +62,22 @@ test("cleanup bounds each batch and can continue draining a backlog", async () =
   }), error => error === rollback);
 });
 
+test("cleanup uses expiresAt for all four lifetimes, not createdAt plus a fixed day", async () => {
+  await assert.rejects(db.transaction(async tx => {
+    const expired = [1, 3, 12, 24].map(hours => ({
+      code: code(), createdAt: new Date(Date.now() - hours * 3600000 - 1000), expiresAt: new Date(Date.now() - 1000),
+    }));
+    // A very old but explicitly unexpired record must not be removed or shortened.
+    const active = { code: code(), createdAt: new Date("2020-01-01"), expiresAt: new Date(Date.now() + 3600000) };
+    await tx.insert(rooms).values([...expired, active]);
+    let count;
+    do { count = await deleteExpiredRoomBatch(tx); } while (count === ROOM_CLEANUP_BATCH_SIZE);
+    assert.deepEqual(await tx.select().from(rooms).where(inArray(rooms.code, expired.map(r => r.code))), []);
+    assert.equal((await tx.select().from(rooms).where(eq(rooms.code, active.code)))[0].expiresAt.toISOString(), active.expiresAt.toISOString());
+    throw rollback;
+  }), error => error === rollback);
+});
+
 test("a room locked by another transaction is skipped without blocking cleanup", async () => {
   const roomCode = code();
   await db.insert(rooms).values({ code: roomCode, expiresAt: new Date("2000-01-01") });

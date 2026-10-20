@@ -52,6 +52,63 @@ test("creation, joining and authenticated recovery return the database room expi
   assert.equal((await request(`${path}/me`)).data.expiresAt, undefined);
 });
 
+test("four fixed server lifetimes and omitted legacy 24h default; lifecycle operations never extend them", async t => {
+  for (const hours of [1, 3, 12, 24, undefined]) await t.test(`${hours ?? "legacy"} hours`, async () => {
+    const created = await request("/rooms", undefined, "POST", hours === undefined ? {} : { durationHours: hours });
+    assert.equal(created.status, 201);
+    const a = created.data;
+    fixtures.push(a.roomCode);
+    const path = `/rooms/${a.roomCode}`;
+    const [row] = await db.select().from(rooms).where(eq(rooms.code, a.roomCode));
+    assert.equal(row.expiresAt.getTime() - row.createdAt.getTime(), (hours ?? 24) * 3600000);
+    const expiry = row.expiresAt.toISOString();
+    assert.equal(a.expiresAt, expiry);
+    const b = await request(`${path}/join`, undefined, "POST", {});
+    assert.equal(b.status, 201);
+    assert.equal(b.data.expiresAt, expiry);
+    for (let i = 0; i < 2; i++) {
+      const restored = await request(`${path}/me`, a.participantToken);
+      assert.equal(restored.status, 200);
+      assert.equal(restored.data.expiresAt, expiry);
+    }
+    assert.equal((await request(`${path}/preferences`, a.participantToken, "PUT", preferences(a.participantId))).status, 200);
+    const revealed = await request(`${path}/preferences`, b.data.participantToken, "PUT", preferences(b.data.participantId));
+    assert.equal(revealed.status, 200);
+    assert.equal(revealed.data.state, "revealed");
+    assert.equal((await request(`${path}/recommendations/reroll`, a.participantToken, "POST", { participantId: a.participantId })).status, 200);
+    assert.equal((await request(`${path}/reset`, a.participantToken, "POST", { participantId: a.participantId })).status, 200);
+    const [after] = await db.select().from(rooms).where(eq(rooms.code, a.roomCode));
+    assert.equal(after.expiresAt.toISOString(), expiry);
+    assert.equal(after.createdAt.toISOString(), row.createdAt.toISOString());
+    assert.equal((await request(`${path}/me`, a.participantToken)).data.expiresAt, expiry);
+
+    // Controlled server-owned timestamps simulate reaching each selected lifetime.
+    await db.update(rooms).set({ createdAt: new Date(Date.now() - (hours ?? 24) * 3600000 - 1000), expiresAt: new Date(Date.now() - 1000) }).where(eq(rooms.code, a.roomCode));
+    for (const [suffix, method, body] of [
+      ["me", "GET", undefined],
+      ["join", "POST", {}],
+      ["preferences", "PUT", { ...preferences(a.participantId), preferenceRevision: 2 }],
+      ["reset", "POST", { participantId: a.participantId }],
+      ["recommendations/reroll", "POST", { participantId: a.participantId }],
+      [`participants/${a.participantId}`, "GET", undefined],
+    ] as const) {
+      const denied = await request(`${path}/${suffix}`, a.participantToken, method, body);
+      assert.equal(denied.status, suffix === "join" ? 404 : suffix.startsWith("participants/") ? 426 : 401);
+      assert.equal(denied.data.ownDraft, undefined);
+      assert.equal(denied.data.recommendations, undefined);
+    }
+  });
+});
+
+test("strict duration validation rejects null, strings, fractions, unsupported numbers and client expiry", async () => {
+  for (const durationHours of [null, 0, -1, 1.5, 2, 25, 48, "12", "", true, [], {}]) {
+    assert.equal((await request("/rooms", undefined, "POST", { durationHours })).status, 400);
+  }
+  for (const expiresAt of [null, "2099-01-01T00:00:00Z"]) {
+    assert.equal((await request("/rooms", undefined, "POST", { durationHours: 12, expiresAt })).status, 400);
+  }
+});
+
 test("tokens have 256 random bits, are independent, and storage uses SHA-256", () => {
   const a = issueCredential("token"), b = issueCredential("token");
   assert.ok(/^[a-f0-9]{64}$/.test(a.participantToken!));

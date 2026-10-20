@@ -29,6 +29,7 @@ export const createRoomBodyNicknameMax = 24;
 
 
 export const CreateRoomBody = zod.object({
+  "durationHours": zod.union([zod.literal(1),zod.literal(3),zod.literal(12),zod.literal(24)]).optional().describe('Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt.'),
   "nickname": zod.string().max(createRoomBodyNicknameMax).optional()
 })
 

@@ -46,8 +46,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { errorMessage, RANKING_DESCRIPTION, RESET_WARNING } from '@/lib/room-interactions';
-import { hasRoomToken, roomReadPolicy, roomRecovery } from '@/lib/room-recovery';
-import { rememberRoom } from '@/lib/recent-room';
+import { endedRoom, hasRoomToken, roomReadPolicy, roomRecovery } from '@/lib/room-recovery';
+import { hasExpiredHint, recentRoom, rememberRoom } from '@/lib/recent-room';
 import { ReturnLastRoom } from '@/components/return-last-room';
 import { Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 
@@ -205,13 +205,14 @@ function Home() {
   const [, setLocation] = useLocation();
   const devSimulationEnabled = isDevSimulationEnabled();
   const [nickname, setNickname] = useState('');
+  const [durationHours, setDurationHours] = useState<1 | 3 | 12 | 24>(12);
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'home' | 'join'>('home');
   const createRoom = useCreateRoom();
   const joinRoom = useJoinRoom();
 
   const handleCreate = () => {
-    createRoom.mutate({ data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
+    createRoom.mutate({ data: { durationHours, ...(nickname.trim() ? { nickname: nickname.trim() } : {}) } }, {
       onSuccess: (room) => {
         rememberRoom(room);
         setLocation(
@@ -272,6 +273,15 @@ function Home() {
             <>
               <label className="mb-2 block text-left text-[12px] font-semibold text-[#776d5e]" htmlFor="home-nickname">怎么称呼你 <span className="font-normal text-[#a79b89]">· 可不填</span></label>
               <input id="home-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={24} placeholder="留个名字也可以" className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-4 text-[14px] outline-none transition focus:border-[#eea260] focus:ring-4 focus:ring-[#f6c89430]" data-testid="input-nickname" />
+              <fieldset className="mt-4 text-left" disabled={createRoom.isPending}>
+                <legend className="text-xs font-semibold text-[#776d5e]">饭局保留时间</legend>
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {([1, 3, 12, 24] as const).map(hours => (
+                    <button key={hours} type="button" aria-pressed={durationHours === hours} onClick={() => setDurationHours(hours)} data-testid={`duration-${hours}`} className={`min-h-11 min-w-11 rounded-xl border text-xs font-semibold transition ${durationHours === hours ? 'border-[#eea260] bg-[#fff0dc] text-[#99531e]' : 'border-[#e8dfcf] bg-[#fffdf8] text-[#776d5e]'}`}>{hours}小时</button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-[#958978]">到期后饭局将自动结束。</p>
+              </fieldset>
               <button type="button" onClick={handleCreate} disabled={createRoom.isPending} className="mt-3 flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] transition hover:bg-[#e8802d] disabled:cursor-wait disabled:opacity-65" data-testid="button-create-room">
                 {createRoom.isPending ? <LoaderCircle className="animate-spin" size={19} /> : <Sparkles size={18} />}
                 {createRoom.isPending ? '正在开个小房间…' : '发起今晚的饭局'}
@@ -355,12 +365,14 @@ function RoomPage() {
   const [attitudes, setAttitudes] = useState<Record<string, CuisineAttitudeType>>({});
   const [copied, setCopied] = useState(false);
   const [joinError, setJoinError] = useState('');
+  const [joinExpired, setJoinExpired] = useState(false);
   const [roomError, setRoomError] = useState('');
   const [simulationPending, setSimulationPending] = useState(false);
   const devSimulationEnabled = isDevSimulationEnabled();
 
   useEffect(() => {
     setParticipantId(localStorage.getItem(participantKey(roomCode)) || '');
+    setJoinExpired(false);
     setDevParticipantId(
       localStorage.getItem(simulatedParticipantKey(roomCode)) || '',
     );
@@ -383,7 +395,9 @@ function RoomPage() {
   const resetRoom = useResetRoom();
   const rerollRecommendations = useRerollRecommendations();
   const room = roomQuery.data;
-  const recovery = roomRecovery(participantId, hasToken, roomQuery.error);
+  const lastRoom = recentRoom();
+  const expiredHint = Boolean(lastRoom && lastRoom.roomCode === roomCode && lastRoom.participantId === participantId && hasExpiredHint(lastRoom));
+  const recovery = joinExpired ? endedRoom : roomRecovery(participantId, hasToken, roomQuery.error, expiredHint);
   const revealed = room?.state === 'revealed';
   const mySubmitted = Boolean(room?.hasSubmitted);
   const hydratedDraft = useRef<string>('');
@@ -414,7 +428,10 @@ function RoomPage() {
         rememberRoom({ roomCode, participantId: response.participantId, expiresAt: response.expiresAt });
         setParticipantId(response.participantId);
       },
-      onError: (error) => setJoinError(errorMessage(error, '这个房间暂时无法加入，可能已满或已过期。')),
+      onError: (error) => {
+        if ((error as { data?: { code?: string } }).data?.code === 'ROOM_EXPIRED') setJoinExpired(true);
+        else setJoinError(errorMessage(error, '这个房间暂时无法加入，可能已满或已过期。'));
+      },
     });
   };
 
@@ -590,7 +607,7 @@ function RoomPage() {
     <main className="app-shell">
       <div className="page-wrap pb-12">
         <Header back={() => setLocation('/')} />
-        {!participantId ? (
+        {!participantId && !joinExpired ? (
           <section className="surface page-enter mt-9 rounded-[28px] p-6" data-testid="state-join-room">
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff0dc] text-[#e77d2b]"><Link2 size={22} /></div>
             <p className="mt-5 text-[11px] font-bold tracking-[.14em] text-[#ae7948]">房间码 · {roomCode}</p>
@@ -613,7 +630,7 @@ function RoomPage() {
             <button type="button" disabled={roomQuery.isFetching || createReplacementRoom.isPending} onClick={() => {
               if (recovery.action === 'refresh') window.location.reload();
               else if (recovery.action === 'retry') void roomQuery.refetch();
-              else createReplacementRoom.mutate({ data: undefined }, {
+              else createReplacementRoom.mutate({ data: { durationHours: 12 } }, {
                 onSuccess: (nextRoom) => {
                   rememberRoom(nextRoom);
                   setLocation(`/room/${nextRoom.roomCode}`);
