@@ -2,18 +2,14 @@
 
 「都行」帮助两个人一起决定吃什么：创建饭局、分享房间码、分别填写饮食偏好，再查看共同的推荐结果。项目包含网页前端、API 后端和 PostgreSQL 数据库，采用 pnpm 工作区管理。
 
-> 本仓库已从 Replit 导出。当前仍保留 Replit / Linux 环境配置，尚未完成 Windows 原生开发适配。下载和阅读代码可以直接进行；安装依赖、启动服务前，请先阅读下面的兼容说明。
-
 ## 现有功能
 
-- 创建或加入双人饭局，通过房间码邀请另一位参与者。
+- 通过房间码创建或加入双人饭局。
 - 分别填写预算、距离、辣度和菜系偏好，双方提交后查看推荐。
 - 换一组推荐、重新选择，并处理双方操作时的版本冲突。
-- 使用参与者 Token 访问受保护的房间数据，支持返回上次饭局。
-- 创建饭局时支持 1、3、12、24 小时有效期；实际过期时间由服务端计算。
-- 提供 PWA manifest、Service Worker 和图标资源。
-
-上述内容根据当前代码整理，不代表已完成本地运行验收或生产发布验收。
+- 使用参与者 Token 访问受保护的数据，支持返回上次饭局。
+- 创建饭局时支持 1、3、12、24 小时有效期，由服务端计算过期时间。
+- 包含 PWA manifest、Service Worker 和安装图标。
 
 ## 技术栈与目录
 
@@ -23,7 +19,7 @@
 | 后端 | Express 5、TypeScript、esbuild |
 | 数据库 | PostgreSQL、Drizzle ORM / Drizzle Kit |
 | 接口 | OpenAPI、Orval、Zod |
-| 工作区 | pnpm、Node.js 24 |
+| 工作区 | Node.js 24、pnpm 10.32.1 |
 | 测试 | Node.js Test Runner、Playwright |
 
 ```text
@@ -37,143 +33,159 @@ douxing-pwa/
 │  ├─ api-spec/            # OpenAPI 定义和代码生成配置
 │  ├─ api-client-react/    # 前端接口客户端及请求封装
 │  └─ api-zod/             # 接口校验代码
-├─ docs/                   # 功能设计、验收记录和运维方案
-├─ scripts/                # 工作区辅助脚本
+├─ docs/                   # 设计、验收记录、运维方案与实施计划
+├─ scripts/                # 工作区辅助脚本和开发环境配置测试
 ├─ attached_assets/        # 素材
-├─ package.json            # 根目录脚本
-├─ pnpm-workspace.yaml     # 工作区、依赖目录和平台覆盖配置
-├─ pnpm-lock.yaml          # 已锁定的依赖版本
+├─ .env.example            # 本地环境配置示例，不含真实凭据
+├─ pnpm-workspace.yaml     # 工作区及平台依赖配置
+├─ pnpm-lock.yaml          # 锁定依赖版本
 ├─ .replit                 # Replit 环境配置
-└─ replit.md               # 原有运行说明
+└─ replit.md               # 原有 Replit 运行说明
 ```
 
 数据库表结构以 `lib/db/src/schema/` 为准；接口定义以 `lib/api-spec/openapi.yaml` 为准。
 
-## Windows：先下载并打开项目
+## Windows 本地开发
 
-准备 Git for Windows、Node.js 24、pnpm 10 和 VS Code。仓库没有通过 `packageManager` 字段固定 pnpm 的精确版本；请保留现有锁文件，不要改用 npm 或 Yarn 安装项目依赖。
+以下命令使用 Windows **命令提示符 CMD**，从仓库根目录执行。需要 Git for Windows、Node.js 24、pnpm 10.32.1；编辑器可以使用 VS Code。项目通过 `packageManager` 固定 pnpm 版本，请保留锁文件，不改用 npm 或 Yarn 安装项目依赖。
 
-在 Windows **命令提示符 CMD** 中检查工具：
+### 1. 下载和安装依赖
 
-```cmd
-git --version
-node --version
-pnpm --version
-```
-
-本项目当前使用的本地目录为：
-
-```text
-C:\Users\Administrator\Desktop\计算机学习\douxing-pwa
-```
-
-首次下载时，在目标父目录执行；如果同名目录已经存在，先检查它，不要覆盖：
+首次下载时执行；已有同名目录时，直接打开现有仓库：
 
 ```cmd
 cd /d "C:\Users\Administrator\Desktop\计算机学习"
 git clone https://github.com/goodguy123456789/douxing-pwa.git
 cd douxing-pwa
-git status
 ```
 
-然后在 VS Code 中选择“文件 → 打开文件夹”，打开仓库根目录。能看到 `package.json`、`pnpm-workspace.yaml` 和 `artifacts`，就完成了下载与打开。
-
-## 安装与启动前的 Windows 兼容事项
-
-当前配置有以下已知限制，本 README 不会自动修复它们：
-
-1. 根目录 `preinstall` 使用 `sh`、`rm` 和 Shell 的 `case` 语法；后端 `dev` 脚本使用 `export`。这些写法不能直接按 CMD 命令运行。仅安装 Git Bash 也不能解决下面的平台依赖问题。
-2. `pnpm-workspace.yaml` 的 `overrides` 移除了 esbuild、Rollup、Lightning CSS、Tailwind Oxide 等组件的 Windows 平台依赖，需要先调整平台配置并核对锁文件。
-3. 前端 Vite 配置要求显式提供 `PORT` 和 `BASE_PATH`；后端也要求 `PORT`，两者应使用不同端口。
-4. 前端使用相对 `/api` 请求。当前 Vite 配置没有本地 API 代理，后端也没有托管前端页面；本地需要配置 `/api` 转发或对应的本地路由。单独启动两个进程不能直接完成联调。
-5. 当前开发服务配置监听 `0.0.0.0`。Windows 适配时应将本地开发服务绑定到 `127.0.0.1`，再进行本机验证。
-
-建议顺序：先完成 Windows 脚本与平台依赖适配，再安装依赖；准备独立数据库和本地 API 路由后，再启动应用。完成适配后，可使用 `pnpm install --frozen-lockfile` 检查依赖安装；如果提示锁文件不匹配，应先核对原因。
-
-## 准备独立的开发数据库
-
-开发环境使用本机 PostgreSQL 及一个独立空数据库，例如 `duoxing_dev`。Replit 原配置使用 PostgreSQL 16，可先按这个版本准备本地实例。
-
-- 不复制 Replit 的生产 `DATABASE_URL`、Secrets、数据库备份或线上用户数据。
-- 后端启动后会立即执行过期房间清理，之后每分钟重试；清理会删除过期房间及关联记录，因此启动前必须确认连接的是本地开发库。
-- 数据库表结构初始化与迁移也只针对这个独立空库执行。
-- 当前 `.gitignore` 没有忽略 `.env`；不要直接把真实凭据写入仓库内的文件。当前后端代码也未配置自动读取 `.env`。
-
-主要环境变量如下：
-
-| 变量 | 使用位置 | 本地准备方式 |
-| --- | --- | --- |
-| `DATABASE_URL` | 后端、Drizzle Kit | 仅使用指向 `127.0.0.1` 的本地开发库连接 |
-| `PORT` | 前端、后端 | 分别在两个终端设置，例如前端 5173、后端 5000 |
-| `BASE_PATH` | 前端 | 在网站根路径开发时设为 `/` |
-| `NODE_ENV` | 后端 | 本地开发设为 `development` |
-| `DUOXING_AUTH_MODE` | 后端 | 独立空开发库使用 `token`；未设置时代码默认为 `legacy` |
-| `LOG_LEVEL` | 后端 | 可选，日志级别 |
-
-完成 Windows 兼容处理、创建本地数据库及专用开发账号后，下面是后端终端的 **CMD 配置示例**。`LOCAL_USER` 和 `LOCAL_PASSWORD` 是占位符，需要替换为本地开发账号；设置变量本身不会启动服务：
+在 VS Code 中选择“文件 → 打开文件夹”，打开 `douxing-pwa`。确认工具版本后安装依赖：
 
 ```cmd
-set "NODE_ENV=development"
-set "PORT=5000"
-set "DUOXING_AUTH_MODE=token"
+git --version
+node --version
+pnpm --version
+pnpm install --frozen-lockfile
+```
+
+安装检查已使用 Node.js 脚本代替 Unix Shell；工作区保留了 Windows 所需的原生组件，无需依赖 Git Bash 执行开发脚本。
+
+### 2. 先检查前端界面
+
+```cmd
+pnpm run dev:web
+```
+
+打开 `http://127.0.0.1:5173`。默认只监听本机；`/api` 请求转发到 `http://127.0.0.1:5000`。按 `Ctrl+C` 停止。
+
+**未准备本地数据库、未启动后端时，仅能检查页面加载，创建或加入饭局等功能无法使用。** 前端代理固定使用回环地址，不转发到 Replit 线上服务。
+
+### 3. 准备独立的本地 PostgreSQL
+
+在本机安装 PostgreSQL 16，并创建一个独立的开发账号和空数据库，例如 `duoxing_dev`。这一步需要单独完成；安装 Node.js 依赖不会创建数据库。
+
+不要复制 Replit 的生产 `DATABASE_URL`、Secrets、线上数据库备份或用户数据。后端启动后立即运行过期房间清理，之后每分钟执行，因此开发环境必须与线上数据隔离。
+
+创建根目录本地配置文件：
+
+```cmd
+copy .env.example .env.local
+```
+
+将 `.env.local` 中的占位账号和密码替换为刚创建的本地开发账号：
+
+```dotenv
+DATABASE_URL=postgresql://duoxing_dev:CHANGE_ME_LOCAL_ONLY@127.0.0.1:5432/duoxing_dev
+API_PORT=5000
+WEB_PORT=5173
+DUOXING_AUTH_MODE=token
+```
+
+`.env.local` 和其他 `.env*` 文件已被 Git 忽略，只有 `.env.example` 纳入版本管理。不要在提交、截图或问题反馈中附上真实连接密码。
+
+| 变量 | 本地用途 |
+| --- | --- |
+| `DATABASE_URL` | 独立本地 PostgreSQL 连接；开发启动入口只接受 `127.0.0.1`、`localhost`、`::1` |
+| `API_PORT` | 本地后端端口，默认 5000；同时用于前端代理目标 |
+| `WEB_PORT` | 本地前端端口，默认 5173 |
+| `DUOXING_AUTH_MODE` | 独立空开发库使用 `token` |
+| `BASE_PATH` | 可选，本地根路径默认为 `/` |
+| `LOG_LEVEL` | 可选，后端日志级别 |
+
+前端 Vite 配置读取根目录的环境文件；根目录 `dev:api` 通过 Node.js 读取 `.env.local`。修改端口或配置后重启相关开发进程。
+
+### 4. 初始化本地表结构
+
+确认连接目标是刚创建的本地空库后，在同一 CMD 中设置本地连接再执行：
+
+```cmd
 set "DATABASE_URL=postgresql://LOCAL_USER:LOCAL_PASSWORD@127.0.0.1:5432/duoxing_dev"
-```
-
-另开前端 CMD 终端时，使用自己的端口和根路径：
-
-```cmd
-set "PORT=5173"
-set "BASE_PATH=/"
-```
-
-这些设置只作用于当前 CMD 及其子进程，不会修改 Replit 环境。不要将 `DATABASE_URL` 的真实值粘贴到问题反馈或 Git 提交中。
-
-确认目标为本地空开发库、且依赖已经可用后，才执行表结构初始化：
-
-```cmd
 pnpm --filter @workspace/db run push
 ```
 
-该命令会修改所连接的数据库。`push-force` 是另一条现有脚本，不作为日常初始化步骤使用。
+`LOCAL_USER` 和 `LOCAL_PASSWORD` 是占位符，替换为本地账号。此处 Drizzle 命令直接读取终端的 `DATABASE_URL`，不会自动读取根目录 `.env.local`，两处连接需要指向同一个本地开发库。
 
-## 现有脚本参考
+`push` 会修改所连接的数据库，执行前自行核对目标；本地后端启动入口的地址检查不覆盖手动运行的 Drizzle 命令。`push-force` 不作为日常初始化步骤。
 
-以下命令从仓库根目录执行，前提是相应环境和依赖已准备好。它们是脚本索引，不代表当前 Windows 配置已通过运行验证。
+### 5. 启动完整本地应用
+
+数据库初始化完成后，分别打开两个 CMD 终端，切换到仓库根目录。
+
+后端：
+
+```cmd
+pnpm run dev:api
+```
+
+前端：
+
+```cmd
+pnpm run dev:web
+```
+
+打开 `http://127.0.0.1:5173`，再进行创建饭局、第二位参与者加入和推荐流程验证。后端开发入口先检查本地数据库地址，再构建与启动服务；配置缺失或指向远程数据库时会直接退出。
+
+原有后端 `start` 是通用启动命令，不包含本地入口检查。日常 Windows 本地开发使用 `dev:api`；不要用 `start` 绕过配置错误。
+
+## 构建与测试
+
+不依赖数据库的检查：
+
+```cmd
+pnpm test
+pnpm run typecheck
+pnpm run build
+```
+
+`pnpm test` 运行本地开发配置测试、后端默认单元测试和前端逻辑测试；不启动数据库集成测试。构建会生成被 Git 忽略的 `dist` 等产物。
 
 | 命令 | 作用 / 前提 |
 | --- | --- |
-| `pnpm run typecheck` | 检查共享库及子项目的 TypeScript 类型 |
-| `pnpm run build` | 先检查类型，再递归构建工作区；前端构建也需要 `PORT` 和 `BASE_PATH` |
-| `pnpm --filter @workspace/duoxing run dev` | 启动前端开发服务；需要本地环境变量、监听地址与 API 路由准备完成 |
-| `pnpm --filter @workspace/api-server run dev` | 原有后端开发入口；当前含 `export`，不兼容 CMD |
-| `pnpm --filter @workspace/api-server run build` | 构建后端，不启动服务 |
-| `pnpm --filter @workspace/api-server run start` | 启动已构建后端；会连接数据库并启动清理任务 |
-| `pnpm --filter @workspace/api-spec run codegen` | 从 OpenAPI 重新生成接口代码，会修改生成文件 |
+| `pnpm run test:local` | 本地数据库地址、端口、回环监听、代理和 Replit 兼容配置测试 |
+| `pnpm --filter @workspace/api-server run test:api` | 房间接口测试，需要运行中的本地 API，当前地址固定为 `http://localhost:80/api` |
+| `pnpm --filter @workspace/api-server run test:auth` | 认证回归，需要独立测试数据库和本地 API，包含数据库读写 |
+| `pnpm --filter @workspace/api-server run test:retention` | 到期清理回归，需要独立测试数据库和本地 API，包含数据库读写 |
+| `pnpm --filter @workspace/duoxing run test:browser` | Playwright 浏览器测试，需要 Chromium 和前后端均可访问的本地应用 |
+| `pnpm --filter @workspace/api-spec run codegen` | 重新生成接口代码，会修改生成文件 |
 
-在依赖兼容问题已解决、后端环境变量和本地数据库已准备好之后，CMD 可分别执行后端 `build` 和 `start`，以避免使用现有 `dev` 中的 `export`；这不替代其他 Windows 适配与本地路由配置。
+浏览器测试默认地址为 `http://localhost:80`。准备好本地前后端后，可使用 CMD 设置 `DUOXING_TEST_BASE_URL=http://127.0.0.1:5173`；部分后端集成测试仍写死 80 端口，需要另行适配后再运行，不会随前端端口自动改变。
 
-## 测试与验证
+所有集成测试仅使用独立开发数据库。应用和测试进程需要连接同一个本地库，测试会创建房间、参与者与偏好记录。
 
-| 命令 | 测试范围 / 依赖 |
-| --- | --- |
-| `pnpm --filter @workspace/api-server run test` | 默认执行匹配算法、HTTP 日志和定时清理调度测试 |
-| `pnpm --filter @workspace/duoxing run test` | 前端本地逻辑测试 |
-| `pnpm --filter @workspace/api-server run test:api` | 房间接口测试，需要运行中的本地 API；当前地址固定为 `http://localhost:80/api` |
-| `pnpm --filter @workspace/api-server run test:auth` | 认证回归，需要独立测试数据库及本地 API；包含数据库读写 |
-| `pnpm --filter @workspace/api-server run test:retention` | 到期清理回归，需要独立测试数据库及本地 API；包含数据库读写 |
-| `pnpm --filter @workspace/duoxing run test:browser` | Playwright 浏览器测试，需要 Chromium 和前后端均可访问的本地应用地址 |
+## Replit 兼容说明
 
-浏览器测试默认地址为 `http://localhost:80`，可使用 `DUOXING_TEST_BASE_URL` 指定其他本地地址；该地址必须同时能够访问页面和 `/api`。部分后端集成测试仍固定使用 80 端口，改变前端端口不会自动修改它们。
+存在 `REPL_ID` 时，开发配置继续使用 Replit 提供的 `PORT`、`BASE_PATH` 和数据库连接，保留原有监听方式及路由，不启用本地 API 代理。Windows 本机无需设置 `REPL_ID`。
 
-集成测试会创建房间、参与者及偏好等数据。测试时应用与测试进程必须连接同一个独立开发数据库，不使用生产环境。修改文档时无需为此启动服务或运行数据库测试。
+本地迁移不等于生产迁移。修改本地文件或创建 Git 提交不会自动发布；推送、生产数据库迁移和部署分别处理。
 
 ## 进一步阅读
 
-- [原有运行说明](replit.md)
+- [原有 Replit 运行说明](replit.md)
 - [匹配算法说明](docs/matching-v1.2.md)
 - [v1.2.1 验收记录](docs/acceptance-v1.2.1.md)
 - [v1.2.2 验收记录](docs/acceptance-v1.2.2.md)
 - [v1.2.3 实现说明](docs/implementation-v1.2.3.md)
 - [认证、数据库迁移与生产切换方案](docs/auth-v1.2.3-operations.md)
+- [Windows 本地开发实施计划](docs/plans/2026-10-22-windows-local-development.md)
 
-文档中的生产切换步骤是操作方案，不表示已执行，也不构成发布授权。本地开发环境准备与生产部署分别处理。
+生产操作文档是方案，不表示已经执行，也不构成发布授权。

@@ -22,7 +22,7 @@ if (Number.isNaN(port) || port <= 0) {
 if (authMode() === "token" && process.env.NODE_ENV === "production") {
   await assertTokenCutoverReady();
 }
-const server = app.listen(port, (err) => {
+const server = app.listen({ port, host: process.env.HOST }, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);

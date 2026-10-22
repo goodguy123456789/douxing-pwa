@@ -3,10 +3,14 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "preinstall": "node -e \"if (!process.env.npm_config_user_agent?.startsWith('pnpm/')) { console.error('Use pnpm instead'); process.exit(1); }\"",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "dev:web": "pnpm --filter @workspace/duoxing run dev",
+    "dev:api": "node --env-file-if-exists=.env.local artifacts/api-server/dev.mjs",
+    "test:local": "node --test scripts/tests/*.test.mjs",
+    "test": "pnpm run test:local && pnpm --filter @workspace/api-server run test && pnpm --filter @workspace/duoxing run test"
   },
   "private": true,
   "dependencies": {
@@ -15,5 +19,6 @@
   "devDependencies": {
     "prettier": "^3.9.6",
     "typescript": "~5.9.3"
-  }
+  },
+  "packageManager": "pnpm@10.32.1"
 }
