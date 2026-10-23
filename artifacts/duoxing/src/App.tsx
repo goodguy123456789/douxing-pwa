@@ -373,6 +373,8 @@ function RoomPage() {
   useEffect(() => {
     setParticipantId(localStorage.getItem(participantKey(roomCode)) || '');
     setJoinExpired(false);
+    setJoinError('');
+    setRoomError('');
     setDevParticipantId(
       localStorage.getItem(simulatedParticipantKey(roomCode)) || '',
     );
@@ -394,6 +396,15 @@ function RoomPage() {
   const submitPreferences = useSubmitPreferences();
   const resetRoom = useResetRoom();
   const rerollRecommendations = useRerollRecommendations();
+  const reportRoomActionError = (error: unknown, fallback: string) => {
+    setRoomError(errorMessage(error, fallback));
+    const status = Number((error as { status?: number } | null)?.status);
+    if (status === 401 || status === 404) {
+      // A failed action is a reason to recheck once, even if a previous network
+      // error stopped polling. Only the authenticated read determines recovery.
+      void roomQuery.refetch();
+    }
+  };
   const room = roomQuery.data;
   const lastRoom = recentRoom();
   const expiredHint = Boolean(lastRoom && lastRoom.roomCode === roomCode && lastRoom.participantId === participantId && hasExpiredHint(lastRoom));
@@ -456,7 +467,7 @@ function RoomPage() {
         setRoomError('');
         queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
       },
-      onError: (error) => setRoomError(errorMessage(error, '保存失败，请检查网络后再试。')),
+      onError: (error) => reportRoomActionError(error, '保存失败，请检查网络后再试。'),
     });
   };
 
@@ -573,7 +584,7 @@ function RoomPage() {
         setRoomError('');
         queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
       },
-      onError: (error) => setRoomError(errorMessage(error, '暂时无法开启新一轮，请稍后再试。')),
+      onError: (error) => reportRoomActionError(error, '暂时无法开启新一轮，请稍后再试。'),
     });
   };
 
@@ -590,9 +601,7 @@ function RoomPage() {
           );
         },
         onError: (error) =>
-          setRoomError(
-            errorMessage(error, '暂时无法更换推荐，请稍后再试。'),
-          ),
+          reportRoomActionError(error, '暂时无法更换推荐，请稍后再试。'),
       },
     );
   };

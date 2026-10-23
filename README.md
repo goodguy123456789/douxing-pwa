@@ -162,13 +162,13 @@ pnpm run build
 | 命令 | 作用 / 前提 |
 | --- | --- |
 | `pnpm run test:local` | 本地数据库地址、端口、回环监听、代理和 Replit 兼容配置测试 |
-| `pnpm --filter @workspace/api-server run test:api` | 房间接口测试，需要运行中的本地 API，当前地址固定为 `http://localhost:80/api` |
+| `pnpm --filter @workspace/api-server run test:api` | 房间接口测试，需要运行中的本地 API，默认地址为 `http://localhost:80/api`，可设置 `DUOXING_TEST_BASE_URL` 为本地应用地址 |
 | `pnpm --filter @workspace/api-server run test:auth` | 认证回归，需要独立测试数据库和本地 API，包含数据库读写 |
 | `pnpm --filter @workspace/api-server run test:retention` | 到期清理回归，需要独立测试数据库和本地 API，包含数据库读写 |
 | `pnpm --filter @workspace/duoxing run test:browser` | Playwright 浏览器测试，需要 Chromium 和前后端均可访问的本地应用 |
 | `pnpm --filter @workspace/api-spec run codegen` | 重新生成接口代码，会修改生成文件 |
 
-浏览器测试默认地址为 `http://localhost:80`。准备好本地前后端后，可使用 CMD 设置 `DUOXING_TEST_BASE_URL=http://127.0.0.1:5173`；部分后端集成测试仍写死 80 端口，需要另行适配后再运行，不会随前端端口自动改变。
+浏览器和后端集成测试默认地址均为 `http://localhost:80`。准备好本地前后端后，在 CMD 设置 `set "DUOXING_TEST_BASE_URL=http://127.0.0.1:5173"`，即可通过本地前端代理测试 API。认证和清理测试还需要终端内的 `DATABASE_URL` 指向同一个独立本地测试库，不会自动读取 `.env.local`。
 
 所有集成测试仅使用独立开发数据库。应用和测试进程需要连接同一个本地库，测试会创建房间、参与者与偏好记录。
 
@@ -187,5 +187,6 @@ pnpm run build
 - [v1.2.3 实现说明](docs/implementation-v1.2.3.md)
 - [认证、数据库迁移与生产切换方案](docs/auth-v1.2.3-operations.md)
 - [Windows 本地开发实施计划](docs/plans/2026-10-22-windows-local-development.md)
+- [v1.2.4 开发与验收报告](docs/acceptance-v1.2.4.md)
 
 生产操作文档是方案，不表示已经执行，也不构成发布授权。

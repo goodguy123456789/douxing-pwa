@@ -49,3 +49,20 @@ pnpm --filter @workspace/duoxing test
 pnpm --filter @workspace/api-server test
 pnpm --filter @workspace/api-server test:api
 ```
+
+## Windows 本地回归
+
+先按根目录 README 准备独立 PostgreSQL 与本机前后端。在仓库根目录的 CMD 中执行：
+
+```cmd
+set "PLAYWRIGHT_BROWSERS_PATH=%CD%\.local\playwright"
+pnpm --filter @workspace/duoxing exec playwright install chromium
+set "DUOXING_TEST_BASE_URL=http://127.0.0.1:5173"
+pnpm --filter @workspace/duoxing run test:browser
+```
+
+根目录 `.local/` 已被忽略。浏览器下载和 trace 不纳入 Git，不包含于生产构建发布。测试地址只使用独立的本地或获准开发环境，不指向生产。
+
+`room-duration.spec.mjs` 验证 320px 四档选择、默认明确发送12、正常房间无倒计时、结束与网络错误区分；新增操作回归覆盖读取因断网停止后，提交、重选、换组遭拒时主动进行一次服务器状态确认，并验证创建新饭局没有旧错误。过期响应的 UI 分支可控模拟，真实到期拒绝由独立数据库上的 API/认证/清理测试验证。
+
+Chromium 的移动视口不代表真实 iPhone Safari 或独立 PWA 验收。实机项目见 `docs/acceptance-v1.2.4.md`。

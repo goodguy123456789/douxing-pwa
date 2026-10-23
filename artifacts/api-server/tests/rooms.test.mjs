@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-const base = "http://localhost:80/api";
+const base = `${(process.env.DUOXING_TEST_BASE_URL ?? "http://localhost:80").replace(/\/$/, "")}/api`;
 const credentials = new Map();
 async function request(path, method = "GET", body) {
   const legacyRead = path.match(/\/participants\/([^/]+)$/);

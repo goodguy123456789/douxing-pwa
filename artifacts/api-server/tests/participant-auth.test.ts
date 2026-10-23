@@ -9,7 +9,7 @@ import express from "express";
 import { once } from "node:events";
 import roomsRouter from "../src/routes/rooms";
 
-const base = "http://localhost:80/api";
+const base = `${(process.env.DUOXING_TEST_BASE_URL ?? "http://localhost:80").replace(/\/$/, "")}/api`;
 const fixtures: string[] = [];
 after(async () => {
   if (fixtures.length) await db.delete(rooms).where(inArray(rooms.code, fixtures));

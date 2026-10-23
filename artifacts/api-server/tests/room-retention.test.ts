@@ -93,7 +93,7 @@ test("a room locked by another transaction is skipped without blocking cleanup",
 });
 
 test("all expired-room API access is rejected before cleanup and cannot alter saved data", async () => {
-  const base = "http://localhost:80/api";
+  const base = `${(process.env.DUOXING_TEST_BASE_URL ?? "http://localhost:80").replace(/\/$/, "")}/api`;
   let token = "";
   async function request(path: string, method = "GET", body?: unknown) {
     const response = await fetch(base + path, {

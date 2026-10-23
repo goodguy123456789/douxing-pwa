@@ -13,7 +13,7 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ### Anonymous room retention
 
-- Rooms expire 24 hours after creation. All room access and mutations reject expired rooms, even before physical cleanup.
+- 房间按创建时选择的 1、3、12 或 24 小时保留，过期时间由服务器计算且不续期。新前端明确发送默认 12 小时；旧客户端缺少 durationHours 时保持 24 小时。访问与操作在逻辑过期后立即拒绝，不依赖物理清理。
 - While the API process is running, cleanup runs at startup and every minute. Each run deletes at most 1,000 expired rooms in batches of 100; existing foreign keys also delete their participants and saved preferences (including drafts retained across rounds).
 - Locked rooms are skipped until a later run. Each batch has a 5-second statement timeout and a 1-second lock timeout. Failures log a fixed message without private data and retry on the next interval.
 - Physical deletion is normally within one minute after expiry, but backlog, database failures, long-held locks or a stopped API can delay it. Startup catches up after downtime; this is not a cleanup guarantee while the service is stopped. No external scheduler or deployment change is required.
