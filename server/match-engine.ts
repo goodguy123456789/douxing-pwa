@@ -10,9 +10,9 @@ export type MatchParticipant = {
 export type MatchRestaurant = {
   name: string;
   cuisine: string;
-  priceLevel: number;
-  distance: number;
-  spicyLevel: number;
+  priceLevel: number | null;
+  distance: number | null;
+  spicyLevel: number | null;
   /** Only supplied when the example data explicitly guarantees adjustability. */
   spiceAdjustable?: boolean;
 };
@@ -36,13 +36,13 @@ export function isEligible(participants: MatchParticipant[], restaurant: MatchRe
   if (participants.length < 2) return false;
   if (participants.some(p => p.cuisinePreferences.some(item => item.cuisine === restaurant.cuisine && item.attitude === "avoid"))) return false;
   const limits = effectiveLimits(participants);
-  if (limits.budget !== null && restaurant.priceLevel > limits.budget) return false;
-  if (limits.distance !== null && restaurant.distance > limits.distance) return false;
+  if (limits.budget !== null && (restaurant.priceLevel === null || restaurant.priceLevel > limits.budget)) return false;
+  if (limits.distance !== null && (restaurant.distance === null || restaurant.distance > limits.distance)) return false;
   if (restaurant.spiceAdjustable === false && participants.some(p =>
-    p.spice !== "any" && restaurant.spicyLevel > (p.spice === "none" ? 0 : 1))) return false;
+    p.spice !== "any" && restaurant.spicyLevel !== null && restaurant.spicyLevel > (p.spice === "none" ? 0 : 1))) return false;
   return true;
 }
-export function calculateMatch(participants: MatchParticipant[], restaurant: MatchRestaurant) {
+export function calculateMatch<T extends MatchRestaurant>(participants: MatchParticipant[], restaurant: T) {
   if (!isEligible(participants, restaurant)) return null;
   const attitudes = participants.map(p => attitude(p, restaurant.cuisine));
   const personal = attitudes.map(value => value === "love" ? 1 : value === "okay" ? 0.5 : 0);
@@ -76,7 +76,7 @@ export function calculateMatch(participants: MatchParticipant[], restaurant: Mat
   if (!knownSpice) reasons.push("辣度可调整性未知，未认定完全兼容");
   return { ...restaurant, matchScore: score, reasons, dimensions, minimumSatisfaction, averageSatisfaction };
 }
-export function rankCandidates(participants: MatchParticipant[], restaurants: MatchRestaurant[]) {
+export function rankCandidates<T extends MatchRestaurant>(participants: MatchParticipant[], restaurants: T[]) {
   return restaurants.map(r => calculateMatch(participants, r))
     .filter((r): r is NonNullable<typeof r> => r !== null)
     .sort((a, b) => b.minimumSatisfaction - a.minimumSatisfaction

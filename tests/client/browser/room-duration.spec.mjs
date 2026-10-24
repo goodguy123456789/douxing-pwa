@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('creation choices are unobtrusive at 320px and explicitly send the default or selected lifetime', async ({ page }) => {
+  test.setTimeout(60_000); // Four creation, return and reload journeys in one case.
   await page.setViewportSize({ width: 320, height: 874 });
   for (const hours of [12, 1, 3, 24]) {
     await page.goto('/');
@@ -15,6 +16,7 @@ test('creation choices are unobtrusive at 320px and explicitly send the default 
     await expect(page.getByTestId(`duration-${hours}`)).toHaveAttribute('aria-pressed', 'true');
     const sent = page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname === '/api/rooms');
     const response = page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/rooms');
+    await page.getByTestId('select-meal-area').selectOption('nanping');
     await page.getByTestId('button-create-room').click();
     expect((await sent).postDataJSON().durationHours).toBe(hours);
     const room = await (await response).json();
@@ -35,7 +37,8 @@ test('creation choices are unobtrusive at 320px and explicitly send the default 
 
 test('server expiry shows a gentle ended screen while network failure does not', async ({ page }) => {
   await page.goto('/');
-  await page.getByTestId('button-create-room').click();
+  await page.getByTestId('select-meal-area').selectOption('nanping');
+    await page.getByTestId('button-create-room').click();
   await expect(page.getByTestId('form-preferences')).toBeVisible();
   const url = page.url();
   // Only the response is simulated. Real rejection of expired operations is API-tested.
@@ -55,10 +58,10 @@ test('server expiry shows a gentle ended screen while network failure does not',
 
 test('操作被拒绝后重新确认服务器过期状态，即使之前的读取因断网停止', async ({ page, request }) => {
   test.setTimeout(60_000);
-  const headers = { 'X-Duoxing-Auth': 'token-v1' };
+  const headers = { 'X-Duoxing-Auth': 'token-v1', 'X-Duoxing-Client': 'restaurants-v1' };
   for (const action of ['submit', 'reset', 'reroll']) {
     await test.step(action, async () => {
-      const created = await request.post('/api/rooms', { headers, data: { durationHours: 12 } });
+      const created = await request.post('/api/rooms', { headers, data: { areaId:'nanping', durationHours: 12 } });
       expect(created.status()).toBe(201);
       const a = await created.json();
       if (action !== 'submit') {
@@ -109,6 +112,8 @@ test('操作被拒绝后重新确认服务器过期状态，即使之前的读�
       expect(expiryReads).toBe(1);
       await page.unrouteAll({ behavior: 'wait' });
       await page.getByTestId('button-retry-room').click();
+      await page.getByTestId('select-meal-area').selectOption('nanping');
+      await page.getByTestId('button-create-room').click();
       await expect(page.getByTestId('form-preferences')).toBeVisible();
       await expect(page.getByTestId('error-room-action')).toHaveCount(0);
       expect(new URL(page.url()).pathname).not.toBe(`/room/${a.roomCode}`);

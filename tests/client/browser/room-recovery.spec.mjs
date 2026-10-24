@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 async function fixture(browser, request, baseURL, tokenMode = 'valid') {
-  const headers = { 'X-Duoxing-Auth': 'token-v1' };
-  const created = await request.post('/api/rooms', { headers, data: {} });
+  const headers = { 'X-Duoxing-Auth': 'token-v1', 'X-Duoxing-Client': 'restaurants-v1' };
+  const created = await request.post('/api/rooms', { headers, data: {areaId:'nanping'} });
   expect(created.status()).toBe(201);
   const a = await created.json();
   const joined = await request.post(`/api/rooms/${a.roomCode}/join`, { headers, data: {} });
@@ -22,7 +22,7 @@ async function fixture(browser, request, baseURL, tokenMode = 'valid') {
   const savedToken = () => page.evaluate(({ code, id }) =>
     localStorage.getItem(`duoxing:token:${code}:${id}`), { code: a.roomCode, id: b.participantId });
   const status = async () => {
-    const response = await request.get(path, { headers: { Authorization: `Bearer ${a.participantToken}` } });
+    const response = await request.get(path, { headers: { 'X-Duoxing-Client':'restaurants-v1', Authorization: `Bearer ${a.participantToken}` } });
     expect(response.status()).toBe(200);
     return response.json();
   };
@@ -53,6 +53,8 @@ test('lost token after refresh leaves loading immediately, never rejoins, and ex
     expect((await f.status()).participantCount).toBe(2);
     expect(await f.page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await f.page.getByTestId('button-retry-room').click();
+    await f.page.getByTestId('select-meal-area').selectOption('nanping');
+    await f.page.getByTestId('button-create-room').click();
     await expect(f.page.getByTestId('form-preferences')).toBeVisible();
     expect(new URL(f.page.url()).pathname !== `/room/${f.a.roomCode}`).toBe(true);
     expect((await f.status()).participantCount).toBe(2);

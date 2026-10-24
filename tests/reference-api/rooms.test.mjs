@@ -7,7 +7,7 @@ async function request(path, method = "GET", body) {
   const id = legacyRead?.[1] ?? body?.participantId;
   const token = credentials.get(id);
   const response = await fetch(base + (legacyRead ? path.replace(/\/participants\/[^/]+$/, "/me") : path), {
-    method, headers: { "Content-Type": "application/json", "X-Duoxing-Auth": "token-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    method, headers: { "Content-Type": "application/json", "X-Duoxing-Auth": "token-v1", "X-Duoxing-Client": "restaurants-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await response.json();
@@ -16,7 +16,7 @@ async function request(path, method = "GET", body) {
 }
 const preferences = (id, revision = 1, overrides = {}) => ({ participantId: id, preferenceRevision: revision, budget: "unlimited", distance: "unlimited", spice: "any", cuisinePreferences: [], ...overrides });
 async function setup() {
-  const { data: a } = await request("/rooms", "POST", {});
+  const { data: a } = await request("/rooms", "POST", {areaId:"nanping"});
   const { data: b } = await request(`/rooms/${a.roomCode}/join`, "POST", {});
   const path = `/rooms/${a.roomCode}`;
   const submit = (id, revision = 1, extra = {}) => request(path + "/preferences", "PUT", preferences(id, revision, extra));
@@ -53,8 +53,8 @@ test("stale revision after partner resets cannot save preferences or reveal stal
 });
 test("reset keeps distinct private drafts, survives reload reads and needs both current confirmations", async () => {
   const { a, b, path, submit, get } = await setup();
-  const first = { nickname: "甲", budget: "2", distance: "3", spice: "mild", cuisinePreferences: [{ cuisine: "日料", attitude: "love" }, { cuisine: "火锅", attitude: "avoid" }] };
-  const second = { nickname: "乙", budget: "3", distance: "5", spice: "none", cuisinePreferences: [{ cuisine: "中餐", attitude: "okay" }] };
+  const first = { nickname: "甲", budget: "2", distance: "unlimited", spice: "mild", cuisinePreferences: [{ cuisine: "日料", attitude: "love" }, { cuisine: "火锅", attitude: "avoid" }] };
+  const second = { nickname: "乙", budget: "3", distance: "unlimited", spice: "none", cuisinePreferences: [{ cuisine: "中餐", attitude: "okay" }] };
   assert.equal((await get(a.participantId)).data.ownDraft, null);
   await submit(a.participantId, 1, first);
   assert.equal((await get(b.participantId)).data.ownDraft, null);
@@ -100,7 +100,7 @@ test("draft access requires a room-scoped Bearer token and exposes no partner da
   assert.doesNotMatch(JSON.stringify(partner), new RegExp(`${a.participantId}|不公开的称呼|烧烤|avoid|updatedAt`));
   assert.equal((await get(outsider.participantId)).status, 401);
   assert.equal((await get("not-a-participant")).status, 401);
-  const response = await fetch(base + path + "/me", { headers: { Authorization: `Bearer ${credentials.get(a.participantId)}` } });
+  const response = await fetch(base + path + "/me", { headers: { 'X-Duoxing-Client':'restaurants-v1', Authorization: `Bearer ${credentials.get(a.participantId)}` } });
   assert.equal(response.headers.get("cache-control"), "no-store");
   assert.deepEqual(Object.keys((await response.json()).ownDraft).sort(), ["budget", "cuisinePreferences", "distance", "nickname", "spice"]);
 });

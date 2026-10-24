@@ -336,7 +336,7 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
-  if (/^\/api\/rooms(?:\/|$)/i.test(resolveUrl(input))) headers.set("x-duoxing-auth", "token-v1");
+  if (/^\/api\/rooms(?:\/|$)/i.test(resolveUrl(input))) { headers.set("x-duoxing-auth", "token-v1"); headers.set("x-duoxing-client", "restaurants-v1"); }
   // Room credentials are scoped by BOTH room and participant, including dev simulation.
   // Never use a global token getter: it could authenticate the wrong participant.
   const roomRequest = resolveUrl(input).match(/^\/api\/rooms\/([A-Z0-9]{4,6})\/(me|preferences|reset|recommendations\/reroll)$/i);

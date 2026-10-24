@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 
-const headers = { 'X-Duoxing-Auth': 'token-v1' };
+const headers = { 'X-Duoxing-Auth': 'token-v1', 'X-Duoxing-Client': 'restaurants-v1' };
 const participantKey = code => `duoxing:participant:${code}`;
 const recentKey = 'duoxing:recent-room';
 
 async function fixture(page, request) {
-  const created = await request.post('/api/rooms', { headers, data: {} });
+  const created = await request.post('/api/rooms', { headers, data: {areaId:'nanping'} });
   expect(created.status()).toBe(201);
   const entry = await created.json();
   await page.goto('/');
@@ -21,7 +21,7 @@ async function ownStatus(page, code) {
   return page.evaluate(async code => {
     const id = localStorage.getItem(`duoxing:participant:${code}`);
     const token = localStorage.getItem(`duoxing:token:${code}:${id}`);
-    const response = await fetch(`/api/rooms/${code}/me`, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await fetch(`/api/rooms/${code}/me`, { headers: { 'X-Duoxing-Client':'restaurants-v1', Authorization: `Bearer ${token}` } });
     return { status: response.status, data: await response.json() };
   }, code);
 }
@@ -31,6 +31,7 @@ test('two real participants return to a full room without rejoining, still submi
   const b = await bContext.newPage();
   try {
     await a.goto('/');
+    await a.getByTestId('select-meal-area').selectOption('nanping');
     await a.getByTestId('button-create-room').click();
     await expect(a.getByTestId('form-preferences')).toBeVisible();
     const code = new URL(a.url()).pathname.split('/').at(-1);
@@ -74,6 +75,7 @@ test('two real participants return to a full room without rejoining, still submi
     await expect(b.getByTestId('error-join-room')).toBeVisible();
     expect(await b.evaluate(key => JSON.parse(localStorage.getItem(key)).roomCode, recentKey)).toBe(code);
     await a.goto('/');
+    await a.getByTestId('select-meal-area').selectOption('nanping');
     await a.getByTestId('button-create-room').click();
     await expect(a.getByTestId('form-preferences')).toBeVisible();
     const nextCode = new URL(a.url()).pathname.split('/').at(-1);

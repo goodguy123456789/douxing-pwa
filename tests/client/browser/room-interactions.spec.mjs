@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { RESET_WARNING } from '../../../client/lib/room-interactions.ts';
 
 const firstDraft = {
-  nickname: '回归甲', budget: '2', distance: '3', spice: 'mild',
+  nickname: '回归甲', budget: 'unlimited', distance: 'unlimited', spice: 'mild',
   cuisinePreferences: [{ cuisine: '日料', attitude: 'love' }],
 };
 const secondDraft = {
@@ -16,7 +16,7 @@ async function json(request, url, method = 'GET', data) {
   const id = oldRead?.[1] ?? data?.participantId;
   const token = credentials.get(id);
   const response = await request.fetch(oldRead ? url.replace(/\/participants\/[^/]+$/, '/me') : url, {
-    method, data, headers: { "X-Duoxing-Auth": "token-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    method, data, headers: { "X-Duoxing-Auth": "token-v1", "X-Duoxing-Client": "restaurants-v1", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
   });
   expect(response.ok(), `${method} ${url.replace(/participants\/.*/, 'participants/[private]')}`).toBeTruthy();
   const result = await response.json();
@@ -25,7 +25,7 @@ async function json(request, url, method = 'GET', data) {
 }
 
 async function revealedRoom(request) {
-  const a = await json(request, '/api/rooms', 'POST', {});
+  const a = await json(request, '/api/rooms', 'POST', {areaId:'nanping'});
   const path = `/api/rooms/${a.roomCode}`;
   const b = await json(request, `${path}/join`, 'POST', {});
   for (const [participant, draft] of [[a, firstDraft], [b, secondDraft]]) {
@@ -81,7 +81,7 @@ async function restoredDraft(page, draft) {
   await expect(page.getByTestId('form-preferences')).toBeVisible();
   await expect(page.getByTestId('text-draft-restored')).toBeVisible();
   await expect(page.getByTestId('input-preference-nickname')).toHaveValue(draft.nickname);
-  for (const [group, value] of [['budget', draft.budget], ['distance', draft.distance], ['spice', draft.spice]]) {
+  for (const [group, value] of [['budget', draft.budget], ['spice', draft.spice]]) {
     await expect(page.getByTestId(`choice-${group}-${value}`)).toHaveAttribute('aria-pressed', 'true');
   }
   for (const { cuisine, attitude } of draft.cuisinePreferences) {

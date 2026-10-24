@@ -14,14 +14,14 @@ before(async () => {
 });
 after(async () => { await mf?.dispose(); });
 beforeEach(async () => { await db.prepare('DELETE FROM duoxing_rooms').run(); });
-const headers = {'X-Duoxing-Auth':'token-v1','Content-Type':'application/json'};
+const headers = {'X-Duoxing-Client':'restaurants-v1','X-Duoxing-Auth':'token-v1','Content-Type':'application/json'};
 async function call(method, url, body, token, database=db, extra={}) {
   const response = await handleApi(new Request('https://duoxing.test/api'+url,{method,
     headers:{...headers,...(token?{Authorization:'Bearer '+token}:{}),...extra},
     ...(body===undefined?{}:{body:JSON.stringify(body)})}),database);
   const data=await response.json(); return {status:response.status,data,headers:response.headers};
 }
-async function create(hours=12) { const r=await call('POST','/rooms',{durationHours:hours}); assert.equal(r.status,201); return r.data; }
+async function create(hours=12) { const r=await call('POST','/rooms',{areaId:'nanping',durationHours:hours}); assert.equal(r.status,201); return r.data; }
 async function pair() { const a=await create();const r=await call('POST','/rooms/'+a.roomCode+'/join',{});assert.equal(r.status,201);return [a,r.data]; }
 const draft=(p,revision=1)=>({participantId:p.participantId,preferenceRevision:revision,budget:'unlimited',distance:'unlimited',spice:'any',cuisinePreferences:[]});
 const read=p=>call('GET','/rooms/'+p.roomCode+'/me',undefined,p.participantToken);
@@ -29,7 +29,7 @@ const submit=(p,revision=1)=>call('PUT','/rooms/'+p.roomCode+'/preferences',draf
 
 test('四档寿命由服务端固定，旧客户端缺省为24小时',async()=>{
   for(const hours of [1,3,12,24]){const p=await create(hours); const row=await db.prepare('SELECT created_at, expires_at FROM duoxing_rooms WHERE code=?').bind(p.roomCode).first(); assert.equal(row.expires_at-row.created_at,hours*3600000);assert.equal(Date.parse(p.expiresAt),row.expires_at);}
-  const r=await call('POST','/rooms',{});assert.equal(r.status,201);const row=await db.prepare('SELECT created_at,expires_at FROM duoxing_rooms WHERE code=?').bind(r.data.roomCode).first();assert.equal(row.expires_at-row.created_at,86400000);
+  const r=await call('POST','/rooms',{areaId:'nanping'});assert.equal(r.status,201);const row=await db.prepare('SELECT created_at,expires_at FROM duoxing_rooms WHERE code=?').bind(r.data.roomCode).first();assert.equal(row.expires_at-row.created_at,86400000);
 });
 test('拒绝字符串、空值、任意结束时间和无效时长',async()=>{
   for(const body of [{durationHours:'12'},{durationHours:null},{durationHours:2},{durationHours:0},{durationHours:12,expiresAt:'2030-01-01'},null]) assert.equal((await call('POST','/rooms',body)).status,400);
@@ -97,4 +97,46 @@ test('连续竞争达到重试上限后返回503，不覆盖其他写入',async(
 test('损坏JSON、未知路由和错误方法不会泄露内部异常',async()=>{
   const response=await handleApi(new Request('https://duoxing.test/api/rooms',{method:'POST',headers,body:'{broken'}),db);assert.equal(response.status,400);
   assert.equal((await call('GET','/missing')).status,404);assert.equal((await call('DELETE','/rooms')).status,405);
+});
+
+const realHeaders={'X-Duoxing-Client':'restaurants-v1'};
+const realCreate=async(areaId='nanping')=>call('POST','/rooms',{areaId,durationHours:12},undefined,db,realHeaders);
+test('v1.3必须先选择有效片区，旧缓存创建被要求刷新',async()=>{
+ assert.equal((await call('POST','/rooms',{durationHours:12},undefined,db,realHeaders)).status,400);
+ assert.equal((await realCreate('missing')).status,400);
+ assert.equal((await call('POST','/rooms',{},undefined,db,{'X-Duoxing-Client':''})).status,426);
+ assert.equal((await db.prepare('SELECT count(*) AS n FROM duoxing_rooms').first()).n,0);
+});
+test('四片区固定在饭局中且完整候选快照持久化，旧缓存不能占用名额',async()=>{
+ for(const areaId of ['nanping','danzishi','chayuan','cqupt']){
+ const created=await realCreate(areaId);assert.equal(created.status,201);const a=created.data;
+ const old=await call('POST','/rooms/'+a.roomCode+'/join',{},undefined,db,{'X-Duoxing-Client':''});assert.equal(old.status,426);
+ const current=await call('GET','/rooms/'+a.roomCode+'/me',undefined,a.participantToken,db,realHeaders);
+ assert.equal(current.status,200);assert.equal(current.data.areaId,areaId);assert.equal(current.data.participantCount,1);
+ assert.equal((await call('GET','/rooms/'+a.roomCode+'/me',undefined,a.participantToken,db,{'X-Duoxing-Client':''})).status,426);
+ const row=await db.prepare('SELECT state_json FROM duoxing_rooms WHERE code=?').bind(a.roomCode).first();
+ const saved=JSON.parse(row.state_json);assert.equal(saved.areaId,areaId);assert.ok(saved.catalogVersion);assert.ok(Array.isArray(saved.candidates));assert.ok(saved.candidates.every(r=>r.areaId===areaId));
+ }
+});
+test('真实饭局严格排除未知人均，忽略伪造距离并保持候选快照不变',async()=>{
+ const a=(await realCreate()).data;
+ const b=(await call('POST','/rooms/'+a.roomCode+'/join',{},undefined,db,realHeaders)).data;
+ const row=await db.prepare('SELECT state_json FROM duoxing_rooms WHERE code=?').bind(a.roomCode).first();
+ const saved=JSON.parse(row.state_json);
+ saved.candidates=[49,50,51,100,101,null].map((price,index)=>({id:'fixture-'+index,areaId:'nanping',name:'独立测试门店'+index,address:'测试地址'+index,cuisine:'中餐',averagePrice:price,priceSource:price===null?null:'https://example.com/menu',sourceUrl:'https://example.com/store',checkedAt:'2026-10-24',spicyLevel:null}));
+ await db.prepare('UPDATE duoxing_rooms SET state_json=? WHERE code=?').bind(JSON.stringify(saved),a.roomCode).run();
+ for(const [budget,count] of [['1',2],['2',4],['3',5],['unlimited',6]]){
+ if(budget!=='1')await call('POST','/rooms/'+a.roomCode+'/reset',{participantId:a.participantId},a.participantToken,db,realHeaders);
+ const status=await call('GET','/rooms/'+a.roomCode+'/me',undefined,a.participantToken,db,realHeaders);
+ for(const p of [a,b])assert.equal((await call('PUT','/rooms/'+a.roomCode+'/preferences',{...draft(p,status.data.preferenceRevision),budget,distance:'1'},p.participantToken,db,realHeaders)).status,200);
+ const r=await call('GET','/rooms/'+a.roomCode+'/me',undefined,a.participantToken,db,realHeaders);
+ assert.equal(r.data.candidateCount,count);assert.equal(r.data.ownDraft.distance,'unlimited');assert.ok(r.data.recommendations.every(x=>x.distance===null));assert.equal(r.data.areaId,'nanping');assert.equal(r.data.recommendations[0].address,'测试地址0');
+ const beforeNames=r.data.recommendations.map(x=>x.id);if(r.data.hasMoreRecommendations){const next=await call('POST','/rooms/'+a.roomCode+'/recommendations/reroll',{participantId:a.participantId},a.participantToken,db,realHeaders);assert.ok(next.data.recommendations.every(x=>!beforeNames.includes(x.id)));}
+ }
+});
+test('已有旧饭局保持原推荐与数字距离，新客户端仍能读取',async()=>{
+ const token='a'.repeat(64);const hash=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token))).toString('hex');
+ const participants=['old-a','old-b'].map(id=>({id,tokenHash:id==='old-a'?hash:'b'.repeat(64),nickname:id,submittedAt:Date.now(),preferences:{...draft({participantId:id}),nickname:id}}));
+ await db.prepare('INSERT INTO duoxing_rooms(code,created_at,expires_at,version,state_json) VALUES(?,?,?,?,?)').bind('OLD1',Date.now(),Date.now()+3600000,0,JSON.stringify({round:1,recommendationPage:0,participants})).run();
+ const r=await call('GET','/rooms/OLD1/me',undefined,token,db,realHeaders);assert.equal(r.status,200);assert.equal(r.data.recommendations.length,3);assert.equal(typeof r.data.recommendations[0].distance,'number');assert.equal(r.data.areaId,undefined);
 });

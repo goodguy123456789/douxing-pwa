@@ -10,6 +10,8 @@ import type { RestaurantRecommendation } from './restaurantRecommendation';
 import type { RoomStatusState } from './roomStatusState';
 
 export interface RoomStatus {
+  areaId?: "nanping" | "danzishi" | "chayuan" | "cqupt";
+  catalogVersion?: string;
   roomCode: string;
   /** Server-owned room expiry, for display only; never authorizes access. */
   expiresAt: Date;

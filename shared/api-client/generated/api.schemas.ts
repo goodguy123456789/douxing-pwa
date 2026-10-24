@@ -39,6 +39,7 @@ export const RoomCreateInputDurationHours = {
 } as const;
 
 export interface RoomCreateInput {
+  areaId: "nanping" | "danzishi" | "chayuan" | "cqupt";
   /** Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt. */
   durationHours?: RoomCreateInputDurationHours;
   /** @maxLength 24 */
@@ -143,9 +144,16 @@ export interface RerollRecommendationsInput {
 export interface RestaurantRecommendation {
   name: string;
   cuisine: Cuisine;
-  priceLevel: number;
-  distance: number;
-  spicyLevel: number;
+  priceLevel: number | null;
+  distance: number | null;
+  spicyLevel: number | null;
+  id?: string;
+  areaId?: string;
+  address?: string;
+  averagePrice?: number | null;
+  priceSource?: string | null;
+  sourceUrl?: string;
+  checkedAt?: string;
   /**
      * @minimum 0
      * @maximum 100
@@ -177,6 +185,8 @@ export type PrivatePreferenceDraft = {
 } | null;
 
 export interface RoomStatus {
+  areaId?: "nanping" | "danzishi" | "chayuan" | "cqupt";
+  catalogVersion?: string;
   roomCode: string;
   /** Server-owned room expiry, for display only; never authorizes access. */
   expiresAt: string;

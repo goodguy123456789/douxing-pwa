@@ -1,3 +1,4 @@
+import { MEAL_AREAS, areaName, restaurantMapUrl, type MealAreaId } from '../shared/meal-areas';
 import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { getGetRoomQueryKey, useGetRoom } from './lib/room-auth';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
@@ -205,6 +206,8 @@ function Home() {
   const [, setLocation] = useLocation();
   const devSimulationEnabled = isDevSimulationEnabled();
   const [nickname, setNickname] = useState('');
+  const [areaId, setAreaId] = useState<MealAreaId | ''>('');
+  const [areaError, setAreaError] = useState('');
   const [durationHours, setDurationHours] = useState<1 | 3 | 12 | 24>(12);
   const [code, setCode] = useState('');
   const [mode, setMode] = useState<'home' | 'join'>('home');
@@ -212,7 +215,9 @@ function Home() {
   const joinRoom = useJoinRoom();
 
   const handleCreate = () => {
-    createRoom.mutate({ data: { durationHours, ...(nickname.trim() ? { nickname: nickname.trim() } : {}) } }, {
+    if (!areaId) { setAreaError("请先选择就餐片区，再发起饭局。"); document.getElementById("meal-area")?.focus(); return; }
+    setAreaError("");
+    createRoom.mutate({ data: { areaId, durationHours, ...(nickname.trim() ? { nickname: nickname.trim() } : {}) } }, {
       onSuccess: (room) => {
         rememberRoom(room);
         setLocation(
@@ -273,6 +278,13 @@ function Home() {
             <>
               <label className="mb-2 block text-left text-[12px] font-semibold text-[#776d5e]" htmlFor="home-nickname">怎么称呼你 <span className="font-normal text-[#a79b89]">· 可不填</span></label>
               <input id="home-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={24} placeholder="留个名字也可以" className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-4 text-[14px] outline-none transition focus:border-[#eea260] focus:ring-4 focus:ring-[#f6c89430]" data-testid="input-nickname" />
+              <label htmlFor="meal-area" className="mb-2 mt-4 block text-left text-xs font-semibold text-[#776d5e]">在南岸哪里吃？</label>
+              <select id="meal-area" data-testid="select-meal-area" value={areaId} onChange={event=>{setAreaId(event.target.value as MealAreaId);setAreaError('');}} className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-3 text-sm">
+                <option value="">请选择就餐片区</option>
+                {MEAL_AREAS.map(area=><option key={area.id} value={area.id}>{area.name}</option>)}
+              </select>
+              <p className="mt-2 text-left text-[11px] leading-5 text-[#958978]">双方在同一片区选餐厅，创建后固定。重邮周边推荐校外堂食。</p>
+              {areaError&&<p role="alert" className="mt-2 text-left text-xs text-[#bd594b]">{areaError}</p>}
               <fieldset className="mt-4 text-left" disabled={createRoom.isPending}>
                 <legend className="text-xs font-semibold text-[#776d5e]">饭局保留时间</legend>
                 <div className="mt-2 grid grid-cols-4 gap-2">
@@ -458,7 +470,7 @@ function RoomPage() {
       preferenceRevision: room!.preferenceRevision,
       ...(nickname.trim() ? { nickname: nickname.trim() } : {}),
       budget: budget as PreferenceSubmission['budget'],
-      distance: distance as PreferenceSubmission['distance'],
+      distance: (room?.areaId ? 'unlimited' : distance) as PreferenceSubmission['distance'],
       cuisinePreferences,
       spice: spice as PreferenceSubmission['spice'],
     };
@@ -639,12 +651,7 @@ function RoomPage() {
             <button type="button" disabled={roomQuery.isFetching || createReplacementRoom.isPending} onClick={() => {
               if (recovery.action === 'refresh') window.location.reload();
               else if (recovery.action === 'retry') void roomQuery.refetch();
-              else createReplacementRoom.mutate({ data: { durationHours: 12 } }, {
-                onSuccess: (nextRoom) => {
-                  rememberRoom(nextRoom);
-                  setLocation(`/room/${nextRoom.roomCode}`);
-                },
-              });
+              else setLocation('/');
             }} className="mt-5 min-h-12 w-full rounded-2xl bg-[#f28c3a] px-5 text-sm font-bold text-white disabled:opacity-55" data-testid="button-retry-room">
               {recovery.action === 'create' ? (createReplacementRoom.isPending ? '正在创建…' : '创建新饭局') : recovery.action === 'refresh' ? '刷新页面' : '再试一次'}
             </button>
@@ -676,6 +683,7 @@ function RoomPage() {
             <div className="mb-5 mt-5 flex items-center justify-between">
               <div>
                 <p className="text-[10px] font-bold tracking-[.16em] text-[#a99b87]">ROOM · {room.roomCode}</p>
+                {room.areaId&&<p data-testid="text-room-area" className="mt-2 text-xs text-[#8d7456]">{areaName(room.areaId)} · 换片区请新建饭局</p>}
                 <h1 className="display-title mt-1 text-[28px] font-extrabold text-[#352e24]" data-testid="text-room-state">{stateLabel}</h1>
               </div>
               <div className="flex flex-col items-end gap-2">
@@ -722,6 +730,7 @@ function RoomPage() {
               <div>
               {room.ownDraft && <p className="mb-3 text-xs leading-6 text-[#8e8372]" data-testid="text-draft-restored">已保留你上次保存的偏好，仅你可见。可直接重新确认，或修改后确认；双方确认后才会揭晓。尚未提交的修改不会保存。</p>}
               <PreferenceForm
+                realRestaurants={Boolean(room.areaId)}
                 nickname={nickname}
                 setNickname={setNickname}
                 budget={budget}
@@ -745,7 +754,8 @@ function RoomPage() {
   );
 }
 
-function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, setDistance, spice, setSpice, attitudes, setAttitudes, pending, onSubmit }: {
+function PreferenceForm({ realRestaurants, nickname, setNickname, budget, setBudget, distance, setDistance, spice, setSpice, attitudes, setAttitudes, pending, onSubmit }: {
+  realRestaurants: boolean;
   nickname: string;
   setNickname: (value: string) => void;
   budget: string;
@@ -770,9 +780,10 @@ function PreferenceForm({ nickname, setNickname, budget, setBudget, distance, se
             { value: BudgetLevel.NUMBER_3, label: '¥¥¥', subLabel: '100+ / 人' },
             { value: BudgetLevel.unlimited, label: '不限' },
           ]} />
-          <ChoiceGroup label="愿意走多远" hint="相对于固定示例位置" value={distance} onChange={setDistance} testId="choice-distance" options={[
+          {!realRestaurants && <ChoiceGroup label="愿意走多远" hint="相对于固定示例位置" value={distance} onChange={setDistance} testId="choice-distance" options={[
             { value: DistanceLimit.NUMBER_1, label: '1 km' }, { value: DistanceLimit.NUMBER_3, label: '3 km' }, { value: DistanceLimit.NUMBER_5, label: '5 km' }, { value: DistanceLimit.unlimited, label: '不限' },
-          ]} />
+          ]} />}
+          {realRestaurants&&<p className="text-xs leading-6 text-[#958978]">按所选片区推荐，不使用定位。有限预算仅推荐有可靠人均资料的门店；人均未知仅在预算不限时参与。</p>}
         </div>
       </section>
 
@@ -892,6 +903,19 @@ function Waiting({ roomCode, onCopy, copied, devSimulationEnabled, canSimulate, 
   );
 }
 
+function RestaurantDetails({restaurant}:{restaurant:RoomStatus['recommendations'][number]}){
+ if(!restaurant.address)return null;
+ return <div className="mt-3 space-y-1.5 text-xs leading-6 text-[#8e7b5d]" data-testid="restaurant-details">
+   <p>{restaurant.address}</p>
+   <p>{restaurant.averagePrice==null?'参考人均：暂无可靠资料':('参考人均：约 ¥'+restaurant.averagePrice+'／人')} · 资料核对：{restaurant.checkedAt}</p>
+   <div className="flex flex-wrap gap-x-4">
+     <a href={restaurantMapUrl(restaurant.name,restaurant.address)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">查看地图</a>
+     {restaurant.sourceUrl&&<a href={restaurant.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">门店资料来源</a>}
+     {restaurant.priceSource&&<a href={restaurant.priceSource} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">人均参考来源</a>}
+   </div>
+ </div>;
+}
+
 function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: {
   room: RoomStatus;
   onReroll: () => void;
@@ -925,7 +949,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
             <div className="rounded-[20px] bg-[#f8f4ec] px-4 py-7 text-center" data-testid="empty-recommendations">
               <MapPin size={24} className="mx-auto text-[#c89c62]" />
               <p className="mt-2 text-sm font-bold text-[#645746]">没有共同候选，不会自动放宽限制</p>
-              <p className="mt-2 text-xs leading-6 text-[#9d907b]">可能原因：菜系限制过多、预算过低、距离范围过小，或这些条件组合过于严格。</p>
+              <p className="mt-2 text-xs leading-6 text-[#9d907b]">{room.areaId ? "可能原因：片区资料尚少、菜系被否决、预算过低，或该片区的人均资料仍待核实。可重选偏好，或回首页换片区；不会自动放宽条件。" : "可能原因：菜系限制过多、预算过低、距离范围过小，或这些条件组合过于严格。"}</p>
             </div>
           ) : (
             <>
@@ -947,12 +971,13 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-[#8e7b5d]">
                         <span>{firstRecommendation.cuisine}</span>
                         <span aria-hidden="true">·</span>
-                        <span>{'¥'.repeat(Math.max(1, Math.min(3, firstRecommendation.priceLevel || 1)))}</span>
+                        <span>{firstRecommendation.priceLevel===null?'人均待核实':'¥'.repeat(Math.max(1,Math.min(3,firstRecommendation.priceLevel)))}</span>
                         <span aria-hidden="true">·</span>
-                        <span>{firstRecommendation.distance.toFixed(1)} km</span>
+                        <span>{firstRecommendation.distance===null?"片区内门店":`${firstRecommendation.distance.toFixed(1)} km`}</span>
                       </div>
                     </div>
                   </div>
+                  <RestaurantDetails restaurant={firstRecommendation} />
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {briefReasons.map((reason, reasonIndex) => (
                       <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1.5 text-[10px] font-semibold text-[#75664f]" data-testid={`text-match-reason-0-${reasonIndex}`}>{reason}</span>
@@ -984,7 +1009,7 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                     <div className="min-w-0 flex-1">
                       <h3 className="break-words text-[14px] font-bold text-[#514638]" data-testid={`text-recommendation-name-${index + 1}`}>{restaurant.name}</h3>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium text-[#958875]">
-                        <span>{restaurant.cuisine}</span><span aria-hidden="true">·</span><span>{restaurant.distance.toFixed(1)} km</span>
+                        <span>{restaurant.cuisine}</span><span aria-hidden="true">·</span><span>{restaurant.distance===null?"片区内门店":`${restaurant.distance.toFixed(1)} km`}</span>
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
@@ -992,13 +1017,14 @@ function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: 
                       <span className="block text-[8px] font-medium text-[#a39785]">综合参考分</span>
                     </div>
                   </div>
+                  <RestaurantDetails restaurant={restaurant} />
                 </article>
               ))}
             </>
           )}
           <div className="flex items-start gap-2 rounded-[16px] bg-[#f7f3eb] px-3.5 py-3 text-[10px] leading-[1.65] text-[#978a76]">
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#7d9b78]" />
-            <p>当前为示例餐厅数据。距离相对于固定示例位置，并非你的实时位置；价格是等级参考，营业状态未经验证。综合参考分是内部偏好评分，不是排名分或满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
+            <p>{room.areaId ? "公开资料整理的真实门店；核对日期不代表当天营业确认。参考人均不等于实际账单，出发前请核实。" : "旧饭局沿用示例餐厅数据；距离相对于固定示例位置，价格是等级参考。"}综合参考分是内部偏好评分，不是排名分或满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
           </div>
         </div>
       </div>

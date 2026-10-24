@@ -10,9 +10,16 @@ import type { Cuisine } from './cuisine';
 export interface RestaurantRecommendation {
   name: string;
   cuisine: Cuisine;
-  priceLevel: number;
-  distance: number;
-  spicyLevel: number;
+  priceLevel: number | null;
+  distance: number | null;
+  spicyLevel: number | null;
+  id?: string;
+  areaId?: string;
+  address?: string;
+  averagePrice?: number | null;
+  priceSource?: string | null;
+  sourceUrl?: string;
+  checkedAt?: string;
   /**
      * @minimum 0
      * @maximum 100

@@ -16,6 +16,7 @@ test('invitation shares only the room code and cannot reveal the inviter private
     const urls = [];
     for (const context of [aContext, bContext]) context.on('request', request => urls.push(request.url()));
     await a.goto('/');
+    await a.getByTestId('select-meal-area').selectOption('nanping');
     await a.getByTestId('button-create-room').click();
     await expect(a).toHaveURL(/\/room\/[A-Z0-9]{4}$/);
     const code = new URL(a.url()).pathname.split('/').pop();
@@ -47,7 +48,7 @@ test('invitation shares only the room code and cannot reveal the inviter private
     const status = async (page, id) => page.evaluate(async ({ code, id }) => {
       const token = localStorage.getItem(`duoxing:token:${code}:${id}`);
       const response = await fetch(`/api/rooms/${code}/me`, {
-        headers: { Authorization: `Bearer ${token ?? id}` },
+        headers: { 'X-Duoxing-Client':'restaurants-v1', Authorization: `Bearer ${token ?? id}` },
       });
       return { status: response.status, data: await response.json() };
     }, { code, id });

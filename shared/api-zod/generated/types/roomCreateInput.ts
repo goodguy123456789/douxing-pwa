@@ -8,6 +8,7 @@
 import type { RoomCreateInputDurationHours } from './roomCreateInputDurationHours';
 
 export interface RoomCreateInput {
+  areaId: "nanping" | "danzishi" | "chayuan" | "cqupt";
   /** Fixed lifetime in hours. Omission preserves the legacy 24-hour default; new clients explicitly send 12 by default. Server computes expiresAt. */
   durationHours?: RoomCreateInputDurationHours;
   /** @maxLength 24 */
