@@ -5,7 +5,7 @@ export const MEAL_AREAS = [
 export type MealAreaId = typeof MEAL_AREAS[number]['id'];
 export const isMealArea = (id:unknown):id is MealAreaId => MEAL_AREAS.some(area=>area.id===id);
 export const areaName = (id:string) => MEAL_AREAS.find(area=>area.id===id)?.name ?? id;
-export function restaurantMapUrl(name:string,address:string){
- const query=new URLSearchParams({keyword:name+' '+address,city:'重庆',view:'list',src:'douxing',callnative:'0'});
+export function restaurantMapUrl(name:string,address:string,openApp=true){
+ const query=new URLSearchParams({keyword:name+' '+address,city:'重庆',view:'list',src:'douxing',callnative:openApp?'1':'0'});
  return 'https://uri.amap.com/search?'+query.toString();
 }

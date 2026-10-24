@@ -12,7 +12,9 @@ test('四个片区有独立分店与完整可追溯资料，快照修改不影�
 });
 test('地图关键词完整保留中文、分店、特殊符号与地址',()=>{
  const url=new URL(restaurantMapUrl('店名 A&B（重邮店）','重庆市南岸区崇文路1号附121号'));
- assert.equal(url.origin,'https://uri.amap.com');assert.equal(url.searchParams.get('keyword'),'店名 A&B（重邮店） 重庆市南岸区崇文路1号附121号');assert.equal(url.searchParams.get('city'),'重庆');assert.equal(url.searchParams.get('callnative'),'0');
+ assert.equal(url.origin,'https://uri.amap.com');assert.equal(url.searchParams.get('keyword'),'店名 A&B（重邮店） 重庆市南岸区崇文路1号附121号');assert.equal(url.searchParams.get('city'),'重庆');assert.equal(url.searchParams.get('callnative'),'1');
+ const fallback=new URL(restaurantMapUrl('店名 A&B（重邮店）','重庆市南岸区崇文路1号附121号',false));
+ assert.equal(fallback.searchParams.get('callnative'),'0');assert.equal(fallback.searchParams.get('keyword'),url.searchParams.get('keyword'));
 });
 test('真实门店仍尊重菜系否决，不回退到样例或放宽未知价格',()=>{
  const person={budget:'unlimited',distance:'unlimited',spice:'any',cuisinePreferences:[{cuisine:'中餐',attitude:'avoid'},{cuisine:'火锅',attitude:'avoid'},{cuisine:'日料',attitude:'avoid'}]};

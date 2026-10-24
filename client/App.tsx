@@ -909,7 +909,8 @@ function RestaurantDetails({restaurant}:{restaurant:RoomStatus['recommendations'
    <p>{restaurant.address}</p>
    <p>{restaurant.averagePrice==null?'参考人均：暂无可靠资料':('参考人均：约 ¥'+restaurant.averagePrice+'／人')} · 资料核对：{restaurant.checkedAt}</p>
    <div className="flex flex-wrap gap-x-4">
-     <a href={restaurantMapUrl(restaurant.name,restaurant.address)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">查看地图</a>
+     <a href={restaurantMapUrl(restaurant.name,restaurant.address)} target="_self" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">在高德中打开</a>
+     <a href={restaurantMapUrl(restaurant.name,restaurant.address,false)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">网页版地图</a>
      {restaurant.sourceUrl&&<a href={restaurant.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">门店资料来源</a>}
      {restaurant.priceSource&&<a href={restaurant.priceSource} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">人均参考来源</a>}
    </div>

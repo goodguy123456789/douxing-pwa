@@ -8,7 +8,7 @@ test('片区必选、重邮双端固定、未知人均展示和地图搜索编�
  const b=await other.newPage();await b.goto(page.url());await b.getByTestId('button-enter-room').click();await expect(b.getByTestId('text-room-area')).toContainText('重庆邮电大学周边');
  await page.getByTestId('button-submit-preferences').click();await b.getByTestId('button-submit-preferences').click();
  for(const p of [page,b]){await expect(p.getByTestId('state-results')).toBeVisible();await expect(p.getByTestId('restaurant-details').first()).toBeVisible();await expect(p.getByTestId('state-results')).not.toContainText(' km');
- const link=p.getByRole('link',{name:'查看地图'}).first();const url=new URL(await link.getAttribute('href'));expect(url.origin).toBe('https://uri.amap.com');expect(url.searchParams.get('city')).toBe('重庆');expect(url.searchParams.get('keyword')).toContain('重庆');expect(url.searchParams.get('keyword')).not.toContain('undefined');
+ const link=p.getByRole('link',{name:'在高德中打开'}).first();expect(await link.getAttribute('target')).toBe('_self');const url=new URL(await link.getAttribute('href'));expect(url.searchParams.get('callnative')).toBe('1');const fallback=new URL(await p.getByRole('link',{name:'网页版地图'}).first().getAttribute('href'));expect(fallback.searchParams.get('callnative')).toBe('0');expect(fallback.searchParams.get('keyword')).toBe(url.searchParams.get('keyword'));expect(url.origin).toBe('https://uri.amap.com');expect(url.searchParams.get('city')).toBe('重庆');expect(url.searchParams.get('keyword')).toContain('重庆');expect(url.searchParams.get('keyword')).not.toContain('undefined');
  expect(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await p.reload();await expect(p.getByTestId('state-results')).toBeVisible();}
  }finally{await other.close();}
 });
