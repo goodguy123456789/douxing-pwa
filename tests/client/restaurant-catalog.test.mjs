@@ -17,6 +17,16 @@ test('地图关键词完整保留中文、分店、特殊符号与地址',()=>{
  assert.equal(fallback.searchParams.get('callnative'),'0');assert.equal(fallback.searchParams.get('keyword'),url.searchParams.get('keyword'));
 });
 test('真实门店仍尊重菜系否决，不回退到样例或放宽未知价格',()=>{
- const person={budget:'unlimited',distance:'unlimited',spice:'any',cuisinePreferences:[{cuisine:'中餐',attitude:'avoid'},{cuisine:'火锅',attitude:'avoid'},{cuisine:'日料',attitude:'avoid'}]};
+ const person={budget:'unlimited',distance:'unlimited',spice:'any',cuisinePreferences:['中餐','火锅','日料','韩餐','西餐','东南亚','烧烤','小吃','咖啡 / 甜品'].map(cuisine=>({cuisine,attitude:'avoid'}))};
  assert.equal(getRealRecommendations([person,person],candidatesForArea('nanping')).candidateCount,0);
+});
+
+test('四区50元预算至少有三家已核实参考人均的候选，且反馈来源完整',()=>{
+ const person={budget:'1',distance:'unlimited',spice:'any',cuisinePreferences:[]};
+ for(const area of ['nanping','danzishi','chayuan','cqupt']){
+  const rows=candidatesForArea(area);const result=getRealRecommendations([person,person],rows);
+  assert.ok(result.candidateCount>=3,area+' 缺少50元内候选');
+  for(const row of result.recommendations){assert.ok(row.averagePrice>0&&row.averagePrice<=50);assert.ok(row.feedback?.length, row.name+' 缺少来源反馈');}
+  for(const row of rows)for(const item of row.feedback??[]){assert.ok(new URL(item.sourceUrl).hostname);assert.ok(item.sourceLabel);assert.ok(item.summary);assert.match(item.checkedAt,/^\d{4}-\d{2}-\d{2}$/);if(item.rating!=null)assert.ok(item.rating>=0&&item.rating<=5);}
+ }
 });

@@ -903,10 +903,27 @@ function Waiting({ roomCode, onCopy, copied, devSimulationEnabled, canSimulate, 
   );
 }
 
+function RestaurantFeedbackDetails({feedback}:{feedback:NonNullable<RoomStatus['recommendations'][number]['feedback']>}){
+ return <details className="mt-3 rounded-xl border border-[#e5d9c4] bg-white/60 px-3 py-1" data-testid="restaurant-feedback-details">
+   <summary className="cursor-pointer py-2 font-semibold text-[#705b3a]">食客反馈与用餐提醒</summary>
+   <div className="space-y-3 pb-2" data-testid="restaurant-feedback">
+     {feedback.map((item,index)=><section key={item.sourceUrl+'-'+index} className="border-t border-[#eee5d6] pt-2">
+       <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 flex-wrap items-center gap-x-1 font-semibold underline">{item.sourceLabel}{item.rating!=null&&<span> · {item.rating.toFixed(1)}/5{item.reviewCount!=null?'（'+item.reviewCount+'条评价）':''}</span>} · 查看原始资料</a>
+       <p>食客反馈：{item.summary}</p>
+       {item.caution&&<p className="text-[#986334]">用餐提醒：{item.caution}</p>}
+       {item.spiceNote&&<p>口味线索：{item.spiceNote}</p>}
+       <p className="text-[10px] text-[#9d907b]">核对：{item.checkedAt}{item.publishedAt?' · 页面日期：'+item.publishedAt:''}</p>
+     </section>)}
+     <p className="text-[10px] text-[#9d907b]">公开食客样本转述，口味因人而异；平台评分与匹配参考分分别展示。</p>
+   </div>
+ </details>;
+}
+
 function RestaurantDetails({restaurant}:{restaurant:RoomStatus['recommendations'][number]}){
  if(!restaurant.address)return null;
  return <div className="mt-3 space-y-1.5 text-xs leading-6 text-[#8e7b5d]" data-testid="restaurant-details">
    <p>{restaurant.address}</p>
+    {restaurant.spicyLevel==null&&<p>辣度：待核实，点单前请确认。</p>}
    <p>{restaurant.averagePrice==null?'参考人均：暂无可靠资料':('参考人均：约 ¥'+restaurant.averagePrice+'／人')} · 资料核对：{restaurant.checkedAt}</p>
    <div className="flex flex-wrap gap-x-4">
      <a href={restaurantMapUrl(restaurant.name,restaurant.address)} target="_self" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">在高德中打开</a>
@@ -914,7 +931,8 @@ function RestaurantDetails({restaurant}:{restaurant:RoomStatus['recommendations'
      {restaurant.sourceUrl&&<a href={restaurant.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">门店资料来源</a>}
      {restaurant.priceSource&&<a href={restaurant.priceSource} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">人均参考来源</a>}
    </div>
- </div>;
+ {restaurant.feedback?.length ? <RestaurantFeedbackDetails feedback={restaurant.feedback}/> : null}
+   </div>;
 }
 
 function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: {

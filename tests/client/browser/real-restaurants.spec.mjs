@@ -12,3 +12,23 @@ test('片区必选、重邮双端固定、未知人均展示和地图搜索编�
  expect(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await p.reload();await expect(p.getByTestId('state-results')).toBeVisible();}
  }finally{await other.close();}
 });
+
+for(const areaId of ['nanping','danzishi','chayuan','cqupt'])test(areaId+'：50元预算双端评价、来源、地图与刷新一致',async({page,browser,baseURL})=>{
+ await page.goto('/');await page.getByTestId('select-meal-area').selectOption(areaId);await page.getByTestId('button-create-room').click();
+ await page.getByTestId('choice-budget-1').click();
+ const context=await browser.newContext({baseURL,viewport:{width:320,height:874}});
+ try{
+  const b=await context.newPage();await b.goto(page.url());await b.getByTestId('button-enter-room').click();await b.getByTestId('choice-budget-1').click();
+  await page.getByTestId('button-submit-preferences').click();await b.getByTestId('button-submit-preferences').click();
+  for(const p of [page,b]){
+   await expect(p.getByTestId('state-results')).toBeVisible();await expect(p.getByTestId('empty-recommendations')).toHaveCount(0);
+   const first=p.getByTestId('restaurant-feedback-details').first();await first.locator('summary').click();
+   await expect(first).toContainText('大众点评');await expect(first).toContainText('/5');await expect(first).toContainText('食客反馈：');await expect(first).toContainText('核对：2026-10-25');
+   await expect(first.getByRole('link',{name:/查看原始资料/}).first()).toHaveAttribute('href',/^https:\/\/www.dianping.com\/shop\//);
+   expect(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  }
+  const names=await page.locator('[data-testid^="text-recommendation-name-"]').allTextContents();
+  expect(await b.locator('[data-testid^="text-recommendation-name-"]').allTextContents()).toEqual(names);
+  await page.reload();await expect(page.getByTestId('state-results')).toBeVisible();expect(await page.locator('[data-testid^="text-recommendation-name-"]').allTextContents()).toEqual(names);
+ }finally{await context.close();}
+});

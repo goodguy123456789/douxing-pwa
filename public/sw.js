@@ -1,4 +1,4 @@
-const CACHE_NAME = 'duoxing-shell-v1.3.1';
+const CACHE_NAME = 'duoxing-shell-v1.3.2';
 const SHELL_FILES = [
   './',
   './manifest.webmanifest',

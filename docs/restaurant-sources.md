@@ -23,3 +23,38 @@
 - 高德动态正文在Jina未显示门店信息，相关条目采用agent-reach Exa中的高德独立页索引，并在evidence明确标注。不得在报告中说全部都经过商家官方确认。
 - 平台价格可不同（庖丁家74/85，小八仙68/72），采用来源完整的平台明确参考值，来源随卡片展示。
 菜系归类：川菜、粤菜归入现有中餐类别，原始类型记录为 cuisineDetail。
+
+
+## v1.3.2 四区平价门店与来源评价（2026-10-25）
+
+目录由21家扩充至36家：南坪10、弹子石/南滨路9、茶园8、重邮9。可靠参考人均由3家增加至20家；50元以内分别有4、3、3、5家。新增15家、补齐范梅子与无届两家既有门店人均；共17家有来源评价。
+
+通过 agent-reach 的 OpenCLI 后端复用用户登录浏览器，逐店读取大众点评门店详情与页面可见评价。小红书提供佐米、无届、明康等补充消费体验。线上只使用静态目录快照，不连接用户平台账号，不运行采集工具。
+
+平台评分（满分5分）与双方匹配参考分分开展示；不将评分用作公平排序依据。有限预算继续排除未知人均，菜系否决规则不变。辣度证据不足时继续未知，口味线索只描述来源提及的具体菜品/体验。
+
+主要差异与排除：明康小红书一次加菜消费约50元，点评参考63元，筛选采用后者；无届小红书三菜90元未写人数，不推算人均；旧鹅掌老鸭汤的肥肠鸡记录出现作者后来补充改业，未采用；校内中心食堂不加入。周小妹家常菜仅作待核实候选，不纳入本批推荐。无届同门牌公交地标按点评由304更正为346。
+
+生成契约为现有仓库保留快照，无原OpenAPI生成输入，因此同步维护三处类型/验证快照，并由四种响应契约与D1快照回归验证。
+
+### 本批逐店核实清单
+
+|片区|分店|参考人均|原始资料|
+|---|---|---:|---|
+|danzishi|范梅子地摊江湖菜（弹子石黑金冠好店）|65 元|[分店页](https://www.dianping.com/shop/GaGrpNg9M1VeLDje)|
+|cqupt|无届青年餐馆（重庆邮电大学店）|45 元|[分店页](https://www.dianping.com/shop/H3J8BKzf6vCd8vrJ)|
+|nanping|源泉食店|26 元|[分店页](https://www.dianping.com/shop/l4ysAyoG798cL61z)|
+|nanping|下饭菜·家常菜|39 元|[分店页](https://www.dianping.com/shop/G6EOyXLeabS9n0nC)|
+|nanping|龙马家常菜（万达店）|38 元|[分店页](https://www.dianping.com/shop/l414hyjXzGO4UQXW)|
+|nanping|蒋一碗家常菜（后堡社区店）|28 元|[分店页](https://www.dianping.com/shop/k65c2p5xnQqjD9Jz)|
+|danzishi|何记餐馆|38 元|[分店页](https://www.dianping.com/shop/kaMxeiRg8IWVZS9G)|
+|danzishi|天贵热油豆花饭（弹子石泽科店）|28 元|[分店页](https://www.dianping.com/shop/FnkPR4QN6nFWDdS1)|
+|danzishi|明康酒家（弹子石店）|63 元|[分店页](https://www.dianping.com/shop/l7jNT7U2yyJpZjCs)|
+|danzishi|罗地摊|45 元|[分店页](https://www.dianping.com/shop/l4I5doIq5g7OH2u9)|
+|chayuan|渝血旺（山水一舍店）|37 元|[分店页](https://www.dianping.com/shop/k2VdIGr7xInQU4Rv)|
+|chayuan|廖三豆花馆|39 元|[分店页](https://www.dianping.com/shop/ka5xuQLT63dyJ253)|
+|chayuan|七嬢金猪肝|45 元|[分店页](https://www.dianping.com/shop/H7MVD2ypX5UwtVMh)|
+|cqupt|佐米（邮电大学店）|16 元|[分店页](https://www.dianping.com/shop/G25IiGrvws8LbSCg)|
+|cqupt|暮村厨房·云贵川山野小炒（邮电大学店）|36 元|[分店页](https://www.dianping.com/shop/G2R4lDNZlV8bxwZv)|
+|cqupt|重庆鸡公煲（邮电大学店）|23 元|[分店页](https://www.dianping.com/shop/k2ab4Lfv0pC73Wgg)|
+|cqupt|紫薇餐馆|42 元|[分店页](https://www.dianping.com/shop/k8CXRWhwookhm48W)|

@@ -140,3 +140,24 @@ test('已有旧饭局保持原推荐与数字距离，新客户端仍能读取',
  await db.prepare('INSERT INTO duoxing_rooms(code,created_at,expires_at,version,state_json) VALUES(?,?,?,?,?)').bind('OLD1',Date.now(),Date.now()+3600000,0,JSON.stringify({round:1,recommendationPage:0,participants})).run();
  const r=await call('GET','/rooms/OLD1/me',undefined,token,db,realHeaders);assert.equal(r.status,200);assert.equal(r.data.recommendations.length,3);assert.equal(typeof r.data.recommendations[0].distance,'number');assert.equal(r.data.areaId,undefined);
 });
+
+test('四区50元预算双端收到同一评价快照，刷新和目录变动不会改写旧饭局',async()=>{
+ const {restaurantDirectory}=await import('../server/real-restaurants.ts');
+ for(const areaId of ['nanping','danzishi','chayuan','cqupt']){
+  const a=(await call('POST','/rooms',{areaId})).data;
+  const b=(await call('POST','/rooms/'+a.roomCode+'/join',{})).data;
+  for(const p of [a,b])assert.equal((await call('PUT','/rooms/'+p.roomCode+'/preferences',{...draft(p),budget:'1'},p.participantToken)).status,200);
+  const first=(await read(a)).data;const other=(await read(b)).data;
+  assert.ok(first.candidateCount>=3);assert.equal(first.recommendations.length,3);
+  assert.deepEqual(first.recommendations,other.recommendations);
+  assert.ok(first.recommendations.every(r=>r.averagePrice<=50&&r.feedback?.length));
+  const item=restaurantDirectory.find(r=>r.id===first.recommendations[0].id);
+  const original=structuredClone(item.feedback);
+  try{item.feedback[0].summary='后续目录更新';assert.deepEqual((await read(a)).data.recommendations,first.recommendations);}
+  finally{item.feedback=original;}
+  if(first.hasMoreRecommendations){
+   const next=await call('POST','/rooms/'+a.roomCode+'/recommendations/reroll',{participantId:a.participantId},a.participantToken);
+   assert.equal(next.status,200);assert.deepEqual((await read(b)).data.recommendations,next.data.recommendations);
+  }
+ }
+});
