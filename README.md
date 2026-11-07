@@ -1,192 +1,60 @@
-# 都行 · 双人吃饭决策 PWA
+# 都行 · Sites 版
 
-「都行」帮助两个人一起决定吃什么：创建饭局、分享房间码、分别填写饮食偏好，再查看共同的推荐结果。项目包含网页前端、API 后端和 PostgreSQL 数据库，采用 pnpm 工作区管理。
-
-## 现有功能
-
-- 通过房间码创建或加入双人饭局。
-- 分别填写预算、距离、辣度和菜系偏好，双方提交后查看推荐。
-- 换一组推荐、重新选择，并处理双方操作时的版本冲突。
-- 使用参与者 Token 访问受保护的数据，支持返回上次饭局。
-- 创建饭局时支持 1、3、12、24 小时有效期，由服务端计算过期时间。
-- 包含 PWA manifest、Service Worker 和安装图标。
-
-## 技术栈与目录
-
-| 层级 | 技术 / 工具 |
-| --- | --- |
-| 前端 | React 19、Vite 7、TypeScript、Tailwind CSS 4、TanStack Query |
-| 后端 | Express 5、TypeScript、esbuild |
-| 数据库 | PostgreSQL、Drizzle ORM / Drizzle Kit |
-| 接口 | OpenAPI、Orval、Zod |
-| 工作区 | Node.js 24、pnpm 10.32.1 |
-| 测试 | Node.js Test Runner、Playwright |
-
-```text
-douxing-pwa/
-├─ artifacts/
-│  ├─ duoxing/             # 实际应用前端
-│  ├─ api-server/          # API 服务、房间逻辑及后端测试
-│  └─ mockup-sandbox/      # 界面原型子项目
-├─ lib/
-│  ├─ db/                  # 数据库连接、表结构和迁移 SQL
-│  ├─ api-spec/            # OpenAPI 定义和代码生成配置
-│  ├─ api-client-react/    # 前端接口客户端及请求封装
-│  └─ api-zod/             # 接口校验代码
-├─ docs/                   # 设计、验收记录、运维方案与实施计划
-├─ scripts/                # 工作区辅助脚本和开发环境配置测试
-├─ attached_assets/        # 素材
-├─ .env.example            # 本地环境配置示例，不含真实凭据
-├─ pnpm-workspace.yaml     # 工作区及平台依赖配置
-├─ pnpm-lock.yaml          # 锁定依赖版本
-├─ .replit                 # Replit 环境配置
-└─ replit.md               # 原有 Replit 运行说明
-```
-
-数据库表结构以 `lib/db/src/schema/` 为准；接口定义以 `lib/api-spec/openapi.yaml` 为准。
+基于原项目提交 bbbced227a63f95d24f80b5d23fe1f9363394025 迁移，现已升级 v1.3：南岸区真实餐厅推荐，保留双人决策、公平排序、匿名 Token 和 PWA。
 
 ## Windows 本地开发
 
-以下命令使用 Windows **命令提示符 CMD**，从仓库根目录执行。需要 Git for Windows、Node.js 24、pnpm 10.32.1；编辑器可以使用 VS Code。项目通过 `packageManager` 固定 pnpm 版本，请保留锁文件，不改用 npm 或 Yarn 安装项目依赖。
-
-### 1. 下载和安装依赖
-
-首次下载时执行；已有同名目录时，直接打开现有仓库：
+使用 Node.js 24，在本目录用 CMD 执行：
 
 ```cmd
-cd /d "C:\Users\Administrator\Desktop\计算机学习"
-git clone https://github.com/goodguy123456789/douxing-pwa.git
-cd douxing-pwa
+npm run install:ci
+npm run build
+npm run dev -- --hostname 127.0.0.1 --port 55180
 ```
 
-在 VS Code 中选择“文件 → 打开文件夹”，打开 `douxing-pwa`。确认工具版本后安装依赖：
 
-```cmd
-git --version
-node --version
-pnpm --version
-pnpm install --frozen-lockfile
-```
+首次初始化本地 D1 时，将 drizzle/ 中尚未应用的 SQL 按顺序交给模板 README 中的本地迁移命令；仅使用 --local。
 
-安装检查已使用 Node.js 脚本代替 Unix Shell；工作区保留了 Windows 所需的原生组件，无需依赖 Git Bash 执行开发脚本。
+## 验证
 
-### 2. 先检查前端界面
+- npm test：算法、界面逻辑、真实本地 D1 的 API、并发、认证和清理测试。
+- npm run typecheck：类型检查。
+- npm run test:browser：对独立本地环境运行真实双端浏览器回归。
+- npm run build：构建 Sites Worker。
 
-```cmd
-pnpm run dev:web
-```
+## 数据与发布
 
-打开 `http://127.0.0.1:5173`。默认只监听本机；`/api` 请求转发到 `http://127.0.0.1:5000`。按 `Ctrl+C` 停止。
+新站独立数据库，不读取旧站数据。饭局创建后寿命固定，1/3/12/24 小时可选，新页面默认明确提交 12 小时，旧客户端缺省为 24 小时。到期立即拒绝操作；每次 API 完成后后台删除最多 100 个到期饭局，无访问时不保证立即物理删除。
 
-**未准备本地数据库、未启动后端时，仅能检查页面加载，创建或加入饭局等功能无法使用。** 前端代理固定使用回环地址，不转发到 Replit 线上服务。
+房间状态按内部版本进行原子更新，冲突最多重试五次。Token 原文仅在创建/加入时返回，数据库只存哈希，响应不披露对方身份或草稿。
 
-### 3. 准备独立的本地 PostgreSQL
+通过 Sites 官方工具同步源码、保存版本和部署。不要把 .env、.wrangler、.sites-runtime、node_modules、浏览器 trace 或旧数据库放进源码仓库。Replit 原站与原 GitHub 仓库保持现状。
 
-在本机安装 PostgreSQL 16，并创建一个独立的开发账号和空数据库，例如 `duoxing_dev`。这一步需要单独完成；安装 Node.js 依赖不会创建数据库。
+原模板的运行说明见 docs/sites-template.md。
 
-不要复制 Replit 的生产 `DATABASE_URL`、Secrets、线上数据库备份或用户数据。后端启动后立即运行过期房间清理，之后每分钟执行，因此开发环境必须与线上数据隔离。
+## v1.3 真实餐厅
 
-创建根目录本地配置文件：
+四片区：南坪6家、弹子石／南滨路5家、茶园5家、重庆邮电大学校外周边5家，共21家。资料核对日期2026-10-24，不代表当天营业确认。3家有平台参考人均，其余留空；有限预算排除价格未知门店，只有双方都不限预算才纳入。茶园、重邮当前在有限预算下没有结果，必须由用户主动修改预算，不自动放宽。
 
-```cmd
-copy .env.example .env.local
-```
+创建必须选片区，创建后不可改。D1房间JSON保存areaId、catalogVersion和完整候选快照，双方/换组沿用同一快照。未增加数据库表或迁移SQL。旧饭局保持原推荐直到到期，旧缓存页面访问新饭局返回426提示刷新。
 
-将 `.env.local` 中的占位账号和密码替换为刚创建的本地开发账号：
+接口：POST /api/rooms 新增必填 areaId（nanping/danzishi/chayuan/cqupt）；新客户端所有饭局请求发送 X-Duoxing-Client: restaurants-v1，继续发送 X-Duoxing-Auth: token-v1 及参与者Bearer Token。areaId/catalogVersion仅新饭局返回；新推荐priceLevel/distance/spicyLevel允许null，并增加id/address/averagePrice/priceSource/sourceUrl/checkedAt。新饭局忽略距离筛选并保存unlimited，旧饭局仍支持原距离条件。
 
-```dotenv
-DATABASE_URL=postgresql://duoxing_dev:CHANGE_ME_LOCAL_ONLY@127.0.0.1:5432/duoxing_dev
-API_PORT=5000
-WEB_PORT=5173
-DUOXING_AUTH_MODE=token
-```
+餐厅目录：server/restaurant-directory.json；资料证据：docs/restaurant-sources.md。菜系归类沿用现有类别；匹配公式与公平排序不变，未知人均不补0，未知辣度中性处理。预算1/2/3沿用最高价格等级，分别包含≤50、≤100、全部已知价格等级；unlimited才包括未知价格。
 
-`.env.local` 和其他 `.env*` 文件已被 Git 忽略，只有 `.env.example` 纳入版本管理。不要在提交、截图或问题反馈中附上真实连接密码。
+维护时重新核对门店，更新来源和checkedAt，修改CATALOG_VERSION并发布。已经创建的饭局不追随目录变化。API的Zod校验与客户端类型为保留的生成快照，本仓库没有上游OpenAPI生成器；修改契约时须同步shared/api-zod/generated/api.ts、generated/types及shared/api-client/generated/api.schemas.ts。
 
-| 变量 | 本地用途 |
-| --- | --- |
-| `DATABASE_URL` | 独立本地 PostgreSQL 连接；开发启动入口只接受 `127.0.0.1`、`localhost`、`::1` |
-| `API_PORT` | 本地后端端口，默认 5000；同时用于前端代理目标 |
-| `WEB_PORT` | 本地前端端口，默认 5173 |
-| `DUOXING_AUTH_MODE` | 独立空开发库使用 `token` |
-| `BASE_PATH` | 可选，本地根路径默认为 `/` |
-| `LOG_LEVEL` | 可选，后端日志级别 |
+## v1.3.1 手机地图
 
-前端 Vite 配置读取根目录的环境文件；根目录 `dev:api` 通过 Node.js 读取 `.env.local`。修改端口或配置后重启相关开发进程。
+“在高德中打开”通过官方URI的callnative=1，在手机上由用户点击尝试唤起高德App，使用当前页面跳转以保留直接点击链路；系统可能要求确认，未安装或浏览器限制时可手动使用“网页版地图”（callnative=0，新标签打开）。桌面不触发App唤起。两种入口携带同样店名和详细地址。没有新增定位权限、地图Key或收费API。真机Safari、主屏幕模式与微信内置浏览器的App交接需用户实测，自动化浏览器只验证链接、编码、目标和页面布局。
 
-### 4. 初始化本地表结构
+评价数据调研：现有环境尚未配置小红书读取通道；美团/点评官方评价能力需相应业务权限。现有门店资料不等于评论数据。后续如补充平台评分、人均、辣度或消费提示，应分别保留门店匹配依据、平台、原始链接、评论时间、核对时间和证据数量；不把内部匹配分称为平台口碑分，不据单条评价认定商家存在问题。
 
-确认连接目标是刚创建的本地空库后，在同一 CMD 中设置本地连接再执行：
 
-```cmd
-set "DATABASE_URL=postgresql://LOCAL_USER:LOCAL_PASSWORD@127.0.0.1:5432/duoxing_dev"
-pnpm --filter @workspace/db run push
-```
+## v1.3.2 四区平价门店与来源评价（2026-10-25）
 
-`LOCAL_USER` 和 `LOCAL_PASSWORD` 是占位符，替换为本地账号。此处 Drizzle 命令直接读取终端的 `DATABASE_URL`，不会自动读取根目录 `.env.local`，两处连接需要指向同一个本地开发库。
+目录由21家扩充至36家：南坪10、弹子石/南滨路9、茶园8、重邮9。可靠参考人均由3家增加至20家；50元以内分别有4、3、3、5家。新增15家、补齐范梅子与无届两家既有门店人均；共17家有来源评价。
 
-`push` 会修改所连接的数据库，执行前自行核对目标；本地后端启动入口的地址检查不覆盖手动运行的 Drizzle 命令。`push-force` 不作为日常初始化步骤。
+通过 agent-reach 的 OpenCLI 后端复用用户登录浏览器，逐店读取大众点评门店详情与页面可见评价。小红书提供佐米、无届、明康等补充消费体验。线上只使用静态目录快照，不连接用户平台账号，不运行采集工具。
 
-### 5. 启动完整本地应用
-
-数据库初始化完成后，分别打开两个 CMD 终端，切换到仓库根目录。
-
-后端：
-
-```cmd
-pnpm run dev:api
-```
-
-前端：
-
-```cmd
-pnpm run dev:web
-```
-
-打开 `http://127.0.0.1:5173`，再进行创建饭局、第二位参与者加入和推荐流程验证。后端开发入口先检查本地数据库地址，再构建与启动服务；配置缺失或指向远程数据库时会直接退出。
-
-原有后端 `start` 是通用启动命令，不包含本地入口检查。日常 Windows 本地开发使用 `dev:api`；不要用 `start` 绕过配置错误。
-
-## 构建与测试
-
-不依赖数据库的检查：
-
-```cmd
-pnpm test
-pnpm run typecheck
-pnpm run build
-```
-
-`pnpm test` 运行本地开发配置测试、后端默认单元测试和前端逻辑测试；不启动数据库集成测试。构建会生成被 Git 忽略的 `dist` 等产物。
-
-| 命令 | 作用 / 前提 |
-| --- | --- |
-| `pnpm run test:local` | 本地数据库地址、端口、回环监听、代理和 Replit 兼容配置测试 |
-| `pnpm --filter @workspace/api-server run test:api` | 房间接口测试，需要运行中的本地 API，默认地址为 `http://localhost:80/api`，可设置 `DUOXING_TEST_BASE_URL` 为本地应用地址 |
-| `pnpm --filter @workspace/api-server run test:auth` | 认证回归，需要独立测试数据库和本地 API，包含数据库读写 |
-| `pnpm --filter @workspace/api-server run test:retention` | 到期清理回归，需要独立测试数据库和本地 API，包含数据库读写 |
-| `pnpm --filter @workspace/duoxing run test:browser` | Playwright 浏览器测试，需要 Chromium 和前后端均可访问的本地应用 |
-| `pnpm --filter @workspace/api-spec run codegen` | 重新生成接口代码，会修改生成文件 |
-
-浏览器和后端集成测试默认地址均为 `http://localhost:80`。准备好本地前后端后，在 CMD 设置 `set "DUOXING_TEST_BASE_URL=http://127.0.0.1:5173"`，即可通过本地前端代理测试 API。认证和清理测试还需要终端内的 `DATABASE_URL` 指向同一个独立本地测试库，不会自动读取 `.env.local`。
-
-所有集成测试仅使用独立开发数据库。应用和测试进程需要连接同一个本地库，测试会创建房间、参与者与偏好记录。
-
-## Replit 兼容说明
-
-存在 `REPL_ID` 时，开发配置继续使用 Replit 提供的 `PORT`、`BASE_PATH` 和数据库连接，保留原有监听方式及路由，不启用本地 API 代理。Windows 本机无需设置 `REPL_ID`。
-
-本地迁移不等于生产迁移。修改本地文件或创建 Git 提交不会自动发布；推送、生产数据库迁移和部署分别处理。
-
-## 进一步阅读
-
-- [原有 Replit 运行说明](replit.md)
-- [匹配算法说明](docs/matching-v1.2.md)
-- [v1.2.1 验收记录](docs/acceptance-v1.2.1.md)
-- [v1.2.2 验收记录](docs/acceptance-v1.2.2.md)
-- [v1.2.3 实现说明](docs/implementation-v1.2.3.md)
-- [认证、数据库迁移与生产切换方案](docs/auth-v1.2.3-operations.md)
-- [Windows 本地开发实施计划](docs/plans/2026-10-22-windows-local-development.md)
-- [v1.2.4 开发与验收报告](docs/acceptance-v1.2.4.md)
-
-生产操作文档是方案，不表示已经执行，也不构成发布授权。
+平台评分（满分5分）与双方匹配参考分分开展示；不将评分用作公平排序依据。有限预算继续排除未知人均，菜系否决规则不变。辣度证据不足时继续未知，口味线索只描述来源提及的具体菜品/体验。

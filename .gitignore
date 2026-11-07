@@ -1,55 +1,52 @@
-# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+# Dependencies
+/node_modules/
+/.pnp
+.pnp.*
+# Keep authored Yarn tooling if the project adopts Yarn.
+/.yarn/*
+!/.yarn/patches/
+!/.yarn/plugins/
+!/.yarn/releases/
+!/.yarn/versions/
 
-# compiled output
-dist
-tmp
-out-tsc
+# Generated builds and framework state
+/dist/
+/.next/
+/.vinext/
+/out/
+next-env.d.ts
 *.tsbuildinfo
-.expo
-.expo-shared
 
-# dependencies
-node_modules
+# Test output
+/coverage/
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Package-manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# Local environment and keys
+.env*
+.dev.vars*
+*.pem
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
+# Checkout-local tool state
+/.wrangler/
+/.sites-runtime/
 
-# System Files
+# Workspace scaffolding and publication archives
+/.agents/
+/.codex/
+/outputs/
+/work/
+
+# OS metadata
 .DS_Store
-Thumbs.db
 
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Replit
-.cache/
-.local/
+/.local/
 /generated-artifacts/
-
-# Local environment files
-.env
-.env.*
+/playwright-report/
+/test-results/
+/.sites-checkout/
 !.env.example

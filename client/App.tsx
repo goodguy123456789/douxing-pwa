@@ -1,0 +1,1108 @@
+import { MEAL_AREAS, areaName, restaurantMapUrl, type MealAreaId } from '../shared/meal-areas';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { getGetRoomQueryKey, useGetRoom } from './lib/room-auth';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowDownRight,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  CircleHelp,
+  ClipboardCheck,
+  Compass,
+  CookingPot,
+  Heart,
+  Link2,
+  LoaderCircle,
+  MapPin,
+  RotateCcw,
+  Share2,
+  ShieldCheck,
+  Sparkles,
+  Utensils,
+  X,
+} from 'lucide-react';
+import {
+  BudgetLevel,
+  Cuisine,
+  CuisineAttitude,
+  DistanceLimit,
+  SpicePreference,
+  getHealthCheckQueryKey,
+  useCreateRoom,
+  useHealthCheck,
+  useJoinRoom,
+  useResetRoom,
+  useRerollRecommendations,
+  useSubmitPreferences,
+  type Cuisine as CuisineType,
+  type CuisineAttitude as CuisineAttitudeType,
+  type PreferenceSubmission,
+  type RoomStatus,
+} from '@workspace/api-client-react';
+import { ErrorBoundary } from '@/components/error-boundary';
+import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import NotFound from '@/pages/not-found';
+import { errorMessage, RANKING_DESCRIPTION, RESET_WARNING } from '@/lib/room-interactions';
+import { endedRoom, hasRoomToken, roomReadPolicy, roomRecovery } from '@/lib/room-recovery';
+import { hasExpiredHint, recentRoom, rememberRoom } from '@/lib/recent-room';
+import { ReturnLastRoom } from '@/components/return-last-room';
+import { Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
+
+const queryClient = new QueryClient();
+const cuisines: CuisineType[] = [
+  Cuisine.中餐,
+  Cuisine.火锅,
+  Cuisine.日料,
+  Cuisine.韩餐,
+  Cuisine.西餐,
+  Cuisine.东南亚,
+  Cuisine.烧烤,
+  Cuisine.小吃,
+  Cuisine['咖啡_/_甜品'],
+];
+const cuisineIcons: Record<string, string> = {
+  中餐: '筷',
+  火锅: '锅',
+  日料: '鲜',
+  韩餐: '烤',
+  西餐: '餐',
+  东南亚: '香',
+  烧烤: '炭',
+  小吃: '街',
+  '咖啡 / 甜品': '甜',
+};
+
+function participantKey(roomCode: string) {
+  return `duoxing:participant:${roomCode.toUpperCase()}`;
+}
+
+function simulatedParticipantKey(roomCode: string) {
+  return `duoxing:dev-participant:${roomCode.toUpperCase()}`;
+}
+
+function isDevSimulationEnabled() {
+  return (
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('dev') === 'true'
+  );
+}
+
+function randomChoice<T>(choices: readonly T[]): T {
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function makeRandomPreferences(participantId: string, preferenceRevision: number): PreferenceSubmission {
+  const shuffledCuisines = [...cuisines];
+  for (let index = shuffledCuisines.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffledCuisines[index], shuffledCuisines[swapIndex]] = [
+      shuffledCuisines[swapIndex],
+      shuffledCuisines[index],
+    ];
+  }
+
+  const selectedCuisines = shuffledCuisines.slice(
+    0,
+    3 + Math.floor(Math.random() * 3),
+  );
+  const attitudes: CuisineAttitudeType[] = [
+    CuisineAttitude.love,
+    CuisineAttitude.okay,
+    CuisineAttitude.avoid,
+  ];
+
+  return {
+    participantId,
+    preferenceRevision,
+    nickname: '模拟参与者',
+    budget: randomChoice([
+      BudgetLevel.NUMBER_1,
+      BudgetLevel.NUMBER_2,
+      BudgetLevel.NUMBER_3,
+      BudgetLevel.unlimited,
+    ]),
+    distance: randomChoice([
+      DistanceLimit.NUMBER_1,
+      DistanceLimit.NUMBER_3,
+      DistanceLimit.NUMBER_5,
+      DistanceLimit.unlimited,
+    ]),
+    cuisinePreferences: selectedCuisines.map((cuisine) => ({
+      cuisine,
+      attitude: randomChoice(attitudes),
+    })),
+    spice: randomChoice([
+      SpicePreference.none,
+      SpicePreference.mild,
+      SpicePreference.any,
+    ]),
+  };
+}
+
+function BrandMark({ small = false }: { small?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5" data-testid="brand-mark">
+      <span className={`grid place-items-center rounded-[15px] bg-[#f28c3a] text-[#fff9ee] shadow-[0_5px_12px_#e7833540] ${small ? 'h-9 w-9' : 'h-10 w-10'}`}>
+        <CookingPot size={small ? 19 : 21} strokeWidth={2.5} />
+      </span>
+      <span className="brand-word text-[21px] tracking-[-.07em]">都行</span>
+    </div>
+  );
+}
+
+function ApiSignal() {
+  const { isError } = useHealthCheck({
+    query: {
+      queryKey: getHealthCheckQueryKey(),
+      refetchInterval: 30000,
+    },
+  });
+  const [browserOnline, setBrowserOnline] = useState(
+    () => typeof navigator === 'undefined' || navigator.onLine,
+  );
+
+  useEffect(() => {
+    const updateNetworkStatus = () => setBrowserOnline(navigator.onLine);
+    window.addEventListener('online', updateNetworkStatus);
+    window.addEventListener('offline', updateNetworkStatus);
+    return () => {
+      window.removeEventListener('online', updateNetworkStatus);
+      window.removeEventListener('offline', updateNetworkStatus);
+    };
+  }, []);
+
+  if (browserOnline && !isError) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#efc4b4] bg-[#fff1eb] px-2.5 py-1 text-[10px] font-semibold tracking-[.02em] text-[#a94e3d]" role="status" data-testid="status-api-error">
+      <span className="h-1.5 w-1.5 rounded-full bg-[#c9765c]" />
+      {!browserOnline ? '网络连接中断' : '服务暂时不可用'}
+    </span>
+  );
+}
+
+function Header({ back }: { back?: () => void }) {
+  return (
+    <header className="flex items-center justify-between py-5">
+      <div className="flex items-center gap-3">
+        {back && (
+          <button type="button" onClick={back} aria-label="返回" className="grid h-9 w-9 place-items-center rounded-full border border-[#e8dfcf] bg-[#fffcf5] text-[#756d60]" data-testid="button-back">
+            <ArrowLeft size={17} />
+          </button>
+        )}
+        <BrandMark small />
+      </div>
+      <ApiSignal />
+    </header>
+  );
+}
+
+function Home() {
+  const [, setLocation] = useLocation();
+  const devSimulationEnabled = isDevSimulationEnabled();
+  const [nickname, setNickname] = useState('');
+  const [areaId, setAreaId] = useState<MealAreaId | ''>('');
+  const [areaError, setAreaError] = useState('');
+  const [durationHours, setDurationHours] = useState<1 | 3 | 12 | 24>(12);
+  const [code, setCode] = useState('');
+  const [mode, setMode] = useState<'home' | 'join'>('home');
+  const createRoom = useCreateRoom();
+  const joinRoom = useJoinRoom();
+
+  const handleCreate = () => {
+    if (!areaId) { setAreaError("请先选择就餐片区，再发起饭局。"); document.getElementById("meal-area")?.focus(); return; }
+    setAreaError("");
+    createRoom.mutate({ data: { areaId, durationHours, ...(nickname.trim() ? { nickname: nickname.trim() } : {}) } }, {
+      onSuccess: (room) => {
+        rememberRoom(room);
+        setLocation(
+          `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
+        );
+      },
+    });
+  };
+
+  const handleJoin = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalized = code.trim().toUpperCase();
+    if (normalized.length < 4 || normalized.length > 6) return;
+    joinRoom.mutate({ roomCode: normalized, data: nickname.trim() ? { nickname: nickname.trim() } : undefined }, {
+      onSuccess: (room) => {
+        rememberRoom(room);
+        setLocation(
+          `/room/${room.roomCode}${devSimulationEnabled ? '?dev=true' : ''}`,
+        );
+      },
+    });
+  };
+
+  return (
+    <main className="app-shell">
+      <div className="page-wrap pb-10">
+        <Header />
+        <section className="page-enter relative pt-7 text-center">
+          <div className="mx-auto flex w-fit items-center gap-1.5 rounded-full border border-[#f0d9b7] bg-[#fff6e5] px-3 py-1.5 text-[11px] font-semibold tracking-[.05em] text-[#a76a2b]">
+            <Sparkles size={13} /> 两个人的晚餐灵感
+          </div>
+          <h1 className="display-title mt-6 text-[60px] font-extrabold text-[#30291f] sm:text-[72px]" data-testid="text-home-title">都行<span className="text-[#f28c3a]">?</span></h1>
+          <p className="mt-3 text-[17px] font-semibold tracking-[-.02em] text-[#554b3d]" data-testid="text-home-tagline">别再说都行了。</p>
+          <p className="mx-auto mt-2 max-w-[290px] text-[13px] leading-6 text-[#8d8272]">
+            各自悄悄选好口味，等两个人都准备好了，再一起揭晓今晚吃什么。
+          </p>
+
+          <div className="relative mx-auto mt-8 flex h-[182px] w-full max-w-[340px] items-center justify-center">
+            <span className="float-orb absolute left-[17%] top-4 grid h-12 w-12 place-items-center rounded-[17px] bg-[#f9d780] text-[#885c26] shadow-[0_8px_18px_#d39d5140]">
+              <Utensils size={22} />
+            </span>
+            <span className="float-orb absolute right-[14%] top-10 grid h-10 w-10 place-items-center rounded-full bg-[#f4b5a0] text-[#8d5140] [animation-delay:.8s]">
+              <Heart size={19} />
+            </span>
+            <div className="relative grid h-[142px] w-[196px] place-items-center rounded-[42%_58%_51%_49%/49%_44%_56%_51%] border-[8px] border-[#fff7e8] bg-[#f4c84e] shadow-[0_18px_35px_#b47d3420]">
+              <div className="grid h-[110px] w-[148px] place-items-center rounded-[45%_55%_48%_52%/50%_44%_56%_50%] bg-[#f9e29d]">
+                <span className="brand-word text-[36px] text-[#6e5130]">今晚</span>
+              </div>
+              <span className="absolute -bottom-2 right-5 h-5 w-5 rounded-full border-[5px] border-[#fff7e8] bg-[#f28c3a]" />
+            </div>
+            <span className="absolute bottom-1 left-[22%] h-2 w-2 rounded-full bg-[#efa879]" />
+            <span className="absolute bottom-5 right-[24%] h-3 w-3 rounded-full bg-[#ecd27c]" />
+          </div>
+        </section>
+
+        <section className="surface page-enter mt-5 rounded-[28px] p-5 sm:p-6" aria-label="开始决定晚餐">
+          {mode === 'home' ? (
+            <>
+              <label className="mb-2 block text-left text-[12px] font-semibold text-[#776d5e]" htmlFor="home-nickname">怎么称呼你 <span className="font-normal text-[#a79b89]">· 可不填</span></label>
+              <input id="home-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={24} placeholder="留个名字也可以" className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-4 text-[14px] outline-none transition focus:border-[#eea260] focus:ring-4 focus:ring-[#f6c89430]" data-testid="input-nickname" />
+              <label htmlFor="meal-area" className="mb-2 mt-4 block text-left text-xs font-semibold text-[#776d5e]">在南岸哪里吃？</label>
+              <select id="meal-area" data-testid="select-meal-area" value={areaId} onChange={event=>{setAreaId(event.target.value as MealAreaId);setAreaError('');}} className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-3 text-sm">
+                <option value="">请选择就餐片区</option>
+                {MEAL_AREAS.map(area=><option key={area.id} value={area.id}>{area.name}</option>)}
+              </select>
+              <p className="mt-2 text-left text-[11px] leading-5 text-[#958978]">双方在同一片区选餐厅，创建后固定。重邮周边推荐校外堂食。</p>
+              {areaError&&<p role="alert" className="mt-2 text-left text-xs text-[#bd594b]">{areaError}</p>}
+              <fieldset className="mt-4 text-left" disabled={createRoom.isPending}>
+                <legend className="text-xs font-semibold text-[#776d5e]">饭局保留时间</legend>
+                <div className="mt-2 grid grid-cols-4 gap-2">
+                  {([1, 3, 12, 24] as const).map(hours => (
+                    <button key={hours} type="button" aria-pressed={durationHours === hours} onClick={() => setDurationHours(hours)} data-testid={`duration-${hours}`} className={`min-h-11 min-w-11 rounded-xl border text-xs font-semibold transition ${durationHours === hours ? 'border-[#eea260] bg-[#fff0dc] text-[#99531e]' : 'border-[#e8dfcf] bg-[#fffdf8] text-[#776d5e]'}`}>{hours}小时</button>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-[#958978]">到期后饭局将自动结束。</p>
+              </fieldset>
+              <button type="button" onClick={handleCreate} disabled={createRoom.isPending} className="mt-3 flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] transition hover:bg-[#e8802d] disabled:cursor-wait disabled:opacity-65" data-testid="button-create-room">
+                {createRoom.isPending ? <LoaderCircle className="animate-spin" size={19} /> : <Sparkles size={18} />}
+                {createRoom.isPending ? '正在开个小房间…' : '发起今晚的饭局'}
+                {!createRoom.isPending && <ArrowRight size={17} />}
+              </button>
+              {createRoom.isError && <p className="mt-2 text-left text-xs text-[#bd594b]" role="alert" data-testid="error-create-room">{errorMessage(createRoom.error, '创建失败，请稍后再试。')}</p>}
+              <div className="my-4 flex items-center gap-3 text-[10px] font-semibold tracking-[.15em] text-[#b5a995]"><span className="h-px flex-1 bg-[#eee6d8]" />或者加入朋友的房间<span className="h-px flex-1 bg-[#eee6d8]" /></div>
+              <button type="button" onClick={() => setMode('join')} className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[14px] font-semibold text-[#675d50] transition hover:border-[#e6b27a]" data-testid="button-open-join">
+                <Link2 size={16} /> 我有房间码
+              </button>
+              <ReturnLastRoom onCreate={handleCreate} creating={createRoom.isPending} />
+            </>
+          ) : (
+            <form onSubmit={handleJoin}>
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <p className="text-[15px] font-bold text-[#383025]">加入饭局</p>
+                  <p className="mt-1 text-[12px] text-[#958978]">输入朋友发来的 4–6 位房间码</p>
+                </div>
+                <button type="button" onClick={() => setMode('home')} className="grid h-9 w-9 place-items-center rounded-full bg-[#f5efe4] text-[#857866]" aria-label="关闭加入" data-testid="button-close-join"><X size={17} /></button>
+              </div>
+              <input value={code} onChange={(event) => setCode(event.target.value.replace(/\s/g, '').slice(0, 6).toUpperCase())} minLength={4} maxLength={6} autoFocus placeholder="例如 7K3P" className="h-14 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-center font-mono text-[23px] font-bold tracking-[.22em] uppercase outline-none placeholder:text-[#c4b9a7] focus:border-[#eea260] focus:ring-4 focus:ring-[#f6c89430]" data-testid="input-room-code" />
+              <label className="mb-2 mt-4 block text-left text-[12px] font-semibold text-[#776d5e]" htmlFor="join-nickname">怎么称呼你 <span className="font-normal text-[#a79b89]">· 可不填</span></label>
+              <input id="join-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={24} placeholder="留个名字也可以" className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-4 text-[14px] outline-none focus:border-[#eea260] focus:ring-4 focus:ring-[#f6c89430]" data-testid="input-join-nickname" />
+              {joinRoom.isError && <p className="mt-2 text-left text-xs text-[#bd594b]" role="alert" data-testid="error-join-room">{errorMessage(joinRoom.error, '没有找到这个房间，检查一下房间码吧。')}</p>}
+              <button type="submit" disabled={code.length < 4 || joinRoom.isPending} className="mt-4 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white disabled:opacity-50" data-testid="button-join-room">
+                {joinRoom.isPending ? <LoaderCircle className="animate-spin" size={18} /> : null}
+                {joinRoom.isPending ? '正在加入…' : '加入这个房间'} {!joinRoom.isPending && <ArrowRight size={17} />}
+              </button>
+            </form>
+          )}
+        </section>
+        <div className="mt-6 flex items-center justify-center gap-2 text-[11px] text-[#958a79]" data-testid="text-privacy-note"><ShieldCheck size={14} className="text-[#77a17c]" />彼此的选择会先保密，直到两个人都选完</div>
+        <footer className="mt-8 flex items-center justify-center gap-1.5 text-[10px] text-[#b4a995]"><span>不需要注册</span><span>·</span><span>只为今晚的一顿饭</span></footer>
+      </div>
+    </main>
+  );
+}
+
+function ChoiceGroup<T extends string>({ label, hint, options, value, onChange, testId }: {
+  label: string;
+  hint?: string;
+  options: { value: T; label: string; subLabel?: string }[];
+  value: T;
+  onChange: (value: T) => void;
+  testId: string;
+}) {
+  return (
+    <fieldset>
+      <div className="mb-2.5 flex items-baseline justify-between">
+        <legend className="text-[14px] font-bold text-[#3d352b]">{label}</legend>
+        {hint && <span className="text-[11px] text-[#a39785]">{hint}</span>}
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {options.map((option) => {
+          const active = value === option.value;
+          return (
+            <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={active} className={`pill-choice flex min-h-[43px] flex-col items-center justify-center rounded-[14px] border px-1.5 text-[12px] font-semibold transition ${option.subLabel ? 'min-h-[56px] py-1' : ''} ${active ? 'border-[#f28c3a] bg-[#fff0dc] text-[#b96020] shadow-[inset_0_0_0_1px_#f28c3a]' : 'border-[#e9e3d8] bg-[#f4f0e8] text-[#807667] hover:border-[#e8bb8b]'}`} data-testid={`${testId}-${String(option.value)}`}>
+              {option.label}
+              {option.subLabel && <span className="mt-0.5 text-[9px] font-medium leading-tight text-current opacity-75">{option.subLabel}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function RoomPage() {
+  const params = useParams<{ roomCode: string }>();
+  const roomCode = (params.roomCode || '').toUpperCase();
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [participantId, setParticipantId] = useState(() => typeof window === 'undefined' ? '' : localStorage.getItem(participantKey(roomCode)) || '');
+  const [devParticipantId, setDevParticipantId] = useState(() => typeof window === 'undefined' ? '' : localStorage.getItem(simulatedParticipantKey(roomCode)) || '');
+  const [nickname, setNickname] = useState('');
+  const [joinNickname, setJoinNickname] = useState('');
+  const [budget, setBudget] = useState<string>(BudgetLevel.unlimited);
+  const [distance, setDistance] = useState<string>(DistanceLimit.unlimited);
+  const [spice, setSpice] = useState<string>(SpicePreference.any);
+  const [attitudes, setAttitudes] = useState<Record<string, CuisineAttitudeType>>({});
+  const [copied, setCopied] = useState(false);
+  const [joinError, setJoinError] = useState('');
+  const [joinExpired, setJoinExpired] = useState(false);
+  const [roomError, setRoomError] = useState('');
+  const [simulationPending, setSimulationPending] = useState(false);
+  const devSimulationEnabled = isDevSimulationEnabled();
+
+  useEffect(() => {
+    setParticipantId(localStorage.getItem(participantKey(roomCode)) || '');
+    setJoinExpired(false);
+    setJoinError('');
+    setRoomError('');
+    setDevParticipantId(
+      localStorage.getItem(simulatedParticipantKey(roomCode)) || '',
+    );
+  }, [roomCode]);
+
+  const hasToken = Boolean(participantId && hasRoomToken(roomCode, participantId));
+  const roomQuery = useGetRoom(roomCode, participantId, {
+    query: {
+      queryKey: getGetRoomQueryKey(roomCode, participantId),
+      enabled: Boolean(roomCode && participantId && hasToken),
+      ...roomReadPolicy,
+      refetchInterval: (query) => query.state.error ? false : 2200,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    },
+  });
+  const createReplacementRoom = useCreateRoom();
+  const joinRoom = useJoinRoom();
+  const submitPreferences = useSubmitPreferences();
+  const resetRoom = useResetRoom();
+  const rerollRecommendations = useRerollRecommendations();
+  const reportRoomActionError = (error: unknown, fallback: string) => {
+    setRoomError(errorMessage(error, fallback));
+    const status = Number((error as { status?: number } | null)?.status);
+    if (status === 401 || status === 404) {
+      // A failed action is a reason to recheck once, even if a previous network
+      // error stopped polling. Only the authenticated read determines recovery.
+      void roomQuery.refetch();
+    }
+  };
+  const room = roomQuery.data;
+  const lastRoom = recentRoom();
+  const expiredHint = Boolean(lastRoom && lastRoom.roomCode === roomCode && lastRoom.participantId === participantId && hasExpiredHint(lastRoom));
+  const recovery = joinExpired ? endedRoom : roomRecovery(participantId, hasToken, roomQuery.error, expiredHint);
+  const revealed = room?.state === 'revealed';
+  const mySubmitted = Boolean(room?.hasSubmitted);
+  const hydratedDraft = useRef<string>('');
+  const draftKey = room ? `${roomCode}:${participantId}:${room.preferenceRevision}` : '';
+
+  useEffect(() => {
+    if (room?.roomCode === roomCode && room.participantId === participantId && !roomQuery.isError) {
+      rememberRoom({ roomCode, participantId, expiresAt: room.expiresAt });
+    }
+  }, [room?.roomCode, room?.participantId, room?.expiresAt, roomCode, participantId, roomQuery.isError]);
+
+  useEffect(() => {
+    if (!room || hydratedDraft.current === draftKey) return;
+    const draft = room.ownDraft;
+    setNickname(draft?.nickname ?? '');
+    setBudget(draft?.budget ?? BudgetLevel.unlimited);
+    setDistance(draft?.distance ?? DistanceLimit.unlimited);
+    setSpice(draft?.spice ?? SpicePreference.any);
+    setAttitudes(Object.fromEntries((draft?.cuisinePreferences ?? []).map(p => [p.cuisine, p.attitude])));
+    hydratedDraft.current = draftKey;
+  }, [room, draftKey]);
+
+  const joinCurrentRoom = (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    setJoinError('');
+    joinRoom.mutate({ roomCode, data: joinNickname.trim() ? { nickname: joinNickname.trim() } : undefined }, {
+      onSuccess: (response) => {
+        rememberRoom({ roomCode, participantId: response.participantId, expiresAt: response.expiresAt });
+        setParticipantId(response.participantId);
+      },
+      onError: (error) => {
+        if ((error as { data?: { code?: string } }).data?.code === 'ROOM_EXPIRED') setJoinExpired(true);
+        else setJoinError(errorMessage(error, '这个房间暂时无法加入，可能已满或已过期。'));
+      },
+    });
+  };
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!participantId || !room || hydratedDraft.current !== draftKey) return;
+    const cuisinePreferences = cuisines.filter((cuisine) => attitudes[cuisine]).map((cuisine) => ({
+      cuisine,
+      attitude: attitudes[cuisine],
+    }));
+    const payload: PreferenceSubmission = {
+      participantId,
+      preferenceRevision: room!.preferenceRevision,
+      ...(nickname.trim() ? { nickname: nickname.trim() } : {}),
+      budget: budget as PreferenceSubmission['budget'],
+      distance: (room?.areaId ? 'unlimited' : distance) as PreferenceSubmission['distance'],
+      cuisinePreferences,
+      spice: spice as PreferenceSubmission['spice'],
+    };
+    submitPreferences.mutate({ roomCode, data: payload }, {
+      onSuccess: (status) => {
+        setRoomError('');
+        queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
+      },
+      onError: (error) => reportRoomActionError(error, '保存失败，请检查网络后再试。'),
+    });
+  };
+
+  const submitAsSimulatedParticipant = (virtualParticipantId: string) => {
+    if (virtualParticipantId === participantId) {
+      setSimulationPending(false);
+      setRoomError('模拟参与者不能复用你的参与者身份。');
+      return;
+    }
+
+    localStorage.setItem(
+      simulatedParticipantKey(roomCode),
+      virtualParticipantId,
+    );
+    setDevParticipantId(virtualParticipantId);
+    submitPreferences.mutate(
+      {
+        roomCode,
+        data: makeRandomPreferences(virtualParticipantId, room!.preferenceRevision),
+      },
+      {
+        onSuccess: () => {
+          setSimulationPending(false);
+          void queryClient.invalidateQueries({
+            queryKey: getGetRoomQueryKey(roomCode, participantId),
+          });
+        },
+        onError: (error) => {
+          setSimulationPending(false);
+          setRoomError(
+            errorMessage(error, '模拟参与者提交失败，请稍后再试。'),
+          );
+        },
+      },
+    );
+  };
+
+  const simulateSecondParticipant = () => {
+    if (
+      !devSimulationEnabled ||
+      !room?.hasSubmitted ||
+      room.state === 'revealed' ||
+      simulationPending
+    ) {
+      return;
+    }
+
+    setRoomError('');
+    setSimulationPending(true);
+    if (devParticipantId) {
+      submitAsSimulatedParticipant(devParticipantId);
+      return;
+    }
+
+    joinRoom.mutate(
+      { roomCode, data: { nickname: '模拟参与者' } },
+      {
+        onSuccess: (virtualParticipant) => {
+          if (virtualParticipant.participantId === participantId) {
+            setSimulationPending(false);
+            setRoomError('模拟参与者不能复用你的参与者身份。');
+            return;
+          }
+          submitAsSimulatedParticipant(virtualParticipant.participantId);
+        },
+        onError: (error) => {
+          setSimulationPending(false);
+          setRoomError(
+            errorMessage(error, '无法创建模拟参与者，请确认房间仍有空位。'),
+          );
+        },
+      },
+    );
+  };
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/room/${roomCode}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setRoomError('复制失败，请从地址栏复制房间链接。');
+    }
+  };
+
+  const shareInvite = async () => {
+    const url = `${window.location.origin}/room/${roomCode}`;
+    const resultName = room?.recommendations[0]?.name;
+    if (!navigator.share) {
+      await copyInvite();
+      return;
+    }
+    try {
+      await navigator.share({
+        title: revealed ? '都行 · 今晚的推荐' : '都行',
+        text: revealed
+          ? resultName
+            ? `今晚推荐：${resultName}。`
+            : '我们已经一起完成了今晚的选择。'
+          : '和我一起决定今晚吃什么。',
+        url,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      await copyInvite();
+    }
+  };
+
+  const startAgain = () => {
+    if (!participantId) return;
+    if (!window.confirm(RESET_WARNING)) return;
+    resetRoom.mutate({ roomCode, data: { participantId } }, {
+      onSuccess: (status) => {
+        setRoomError('');
+        queryClient.setQueryData(getGetRoomQueryKey(roomCode, participantId), status);
+      },
+      onError: (error) => reportRoomActionError(error, '暂时无法开启新一轮，请稍后再试。'),
+    });
+  };
+
+  const rerollResult = () => {
+    if (!participantId || !revealed) return;
+    setRoomError('');
+    rerollRecommendations.mutate(
+      { roomCode, data: { participantId } },
+      {
+        onSuccess: (status) => {
+          queryClient.setQueryData(
+            getGetRoomQueryKey(roomCode, participantId),
+            status,
+          );
+        },
+        onError: (error) =>
+          reportRoomActionError(error, '暂时无法更换推荐，请稍后再试。'),
+      },
+    );
+  };
+
+  const stateLabel = useMemo(() => {
+    if (room?.state === 'revealed') return '揭晓时刻';
+    if (room?.state === 'waiting_for_partner' || room?.state === 'waiting_for_other') return '等待另一位完成';
+    return '今晚吃什么';
+  }, [room?.state]);
+
+  return (
+    <main className="app-shell">
+      <div className="page-wrap pb-12">
+        <Header back={() => setLocation('/')} />
+        {!participantId && !joinExpired ? (
+          <section className="surface page-enter mt-9 rounded-[28px] p-6" data-testid="state-join-room">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#fff0dc] text-[#e77d2b]"><Link2 size={22} /></div>
+            <p className="mt-5 text-[11px] font-bold tracking-[.14em] text-[#ae7948]">房间码 · {roomCode}</p>
+            <h1 className="display-title mt-2 text-[28px] font-extrabold">来一起决定晚餐</h1>
+            <p className="mt-2 text-[13px] leading-6 text-[#8e8372]">给自己起个名字（可选），然后悄悄选偏好。</p>
+            <form onSubmit={joinCurrentRoom} className="mt-5">
+              <input value={joinNickname} onChange={(event) => setJoinNickname(event.target.value)} maxLength={24} placeholder="怎么称呼你 · 可不填" className="h-12 w-full rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] px-4 text-sm outline-none focus:border-[#eea260]" data-testid="input-room-nickname" />
+              {joinError && <p className="mt-2 text-xs text-[#bd594b]" role="alert" data-testid="error-room-join">{joinError}</p>}
+              <button type="submit" disabled={joinRoom.isPending} className="mt-3 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-sm font-bold text-white disabled:opacity-55" data-testid="button-enter-room">
+                {joinRoom.isPending ? <LoaderCircle size={18} className="animate-spin" /> : null}
+                {joinRoom.isPending ? '正在加入…' : '加入房间'} {!joinRoom.isPending && <ArrowRight size={17} />}
+              </button>
+            </form>
+          </section>
+        ) : recovery && (recovery.action !== 'retry' || !room) ? (
+          <section className="surface page-enter mt-9 rounded-[28px] p-6 text-center" role="alert" data-testid="state-room-error">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#fce9df] text-[#bd684e]"><CircleHelp size={25} /></div>
+            <h1 className="mt-4 text-xl font-extrabold">{recovery.title}</h1>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">{recovery.message}</p>
+            <button type="button" disabled={roomQuery.isFetching || createReplacementRoom.isPending} onClick={() => {
+              if (recovery.action === 'refresh') window.location.reload();
+              else if (recovery.action === 'retry') void roomQuery.refetch();
+              else setLocation('/');
+            }} className="mt-5 min-h-12 w-full rounded-2xl bg-[#f28c3a] px-5 text-sm font-bold text-white disabled:opacity-55" data-testid="button-retry-room">
+              {recovery.action === 'create' ? (createReplacementRoom.isPending ? '正在创建…' : '创建新饭局') : recovery.action === 'refresh' ? '刷新页面' : '再试一次'}
+            </button>
+            {createReplacementRoom.isError && <p className="mt-3 text-sm text-[#bd594b]">{errorMessage(createReplacementRoom.error, '暂时无法创建，请稍后再试。')}</p>}
+            <button type="button" onClick={() => setLocation('/')} className="mt-3 block min-h-11 w-full text-sm font-semibold text-[#e47f30]" data-testid="button-home-from-error">回到首页</button>
+          </section>
+        ) : roomQuery.isLoading ? (
+          <section className="mt-7 space-y-4" aria-label="正在加载房间" data-testid="state-room-loading">
+            <div className="h-8 w-28 animate-pulse rounded-full bg-[#e9dfcc]" />
+            <div className="surface h-40 animate-pulse rounded-[28px] bg-[#fffaf0]" />
+            <div className="surface h-48 animate-pulse rounded-[28px] bg-[#fffaf0]" />
+          </section>
+        ) : !room ? (
+          <section className="surface page-enter mt-9 rounded-[28px] p-6 text-center" data-testid="state-room-error">
+            <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#fce9df] text-[#bd684e]"><CircleHelp size={25} /></div>
+            <h1 className="mt-4 text-xl font-extrabold">房间暂时打不开</h1>
+            <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-[#8e8372]">{errorMessage(roomQuery.error, '可能是房间码不对、房间已满，或邀请已经过期。')}</p>
+            <button type="button" onClick={() => roomQuery.refetch()} className="mt-5 h-11 rounded-xl border border-[#e8dfcf] px-5 text-sm font-bold text-[#6a5d4d]" data-testid="button-retry-room">再试一次</button>
+            <button type="button" onClick={() => setLocation('/')} className="mt-3 block w-full text-sm font-semibold text-[#e47f30]" data-testid="button-home-from-error">回到首页</button>
+          </section>
+        ) : (
+          <div className="page-enter">
+            {recovery?.action === 'retry' && (
+              <div className="surface mt-5 rounded-2xl p-4 text-sm" role="alert" data-testid="error-room-read">
+                <p className="text-[#8e8372]">{recovery.message} 已保留本页内容。</p>
+                <button type="button" disabled={roomQuery.isFetching} onClick={() => void roomQuery.refetch()} className="mt-2 min-h-11 rounded-xl border border-[#e8dfcf] px-4 font-bold text-[#b96020] disabled:opacity-55">再试一次</button>
+              </div>
+            )}
+            <div className="mb-5 mt-5 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold tracking-[.16em] text-[#a99b87]">ROOM · {room.roomCode}</p>
+                {room.areaId&&<p data-testid="text-room-area" className="mt-2 text-xs text-[#8d7456]">{areaName(room.areaId)} · 换片区请新建饭局</p>}
+                <h1 className="display-title mt-1 text-[28px] font-extrabold text-[#352e24]" data-testid="text-room-state">{stateLabel}</h1>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <button type="button" onClick={shareInvite} className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[#eaddc9] bg-[#fff8eb] px-3 text-[11px] font-semibold text-[#8d7456]" data-testid="button-share-invite">
+                  <Share2 size={13} />{revealed ? '分享结果' : '分享邀请'}
+                </button>
+                <div className="rounded-full border border-[#eaddc9] bg-[#fff8eb] px-3 py-1.5 text-[11px] font-semibold text-[#8d7456]" data-testid="text-participant-count">
+                  {revealed
+                    ? '双方已完成选择'
+                    : `${room.submittedCount}/${room.requiredParticipantCount} 位已提交`}
+                </div>
+                <p className="text-[11px] font-medium text-[#8d7456]" data-testid="text-room-occupancy">
+                  已加入 {room.participantCount}/{room.requiredParticipantCount}
+                </p>
+              </div>
+            </div>
+            {roomError && <div className="mb-4 rounded-xl border border-[#f0c7b7] bg-[#fff1eb] px-4 py-3 text-xs text-[#a94e3d]" role="alert" data-testid="error-room-action">
+              {roomError}
+              {roomError.includes('刷新') && <button type="button" onClick={() => window.location.reload()} className="ml-2 font-bold underline" data-testid="button-refresh-room" title="刷新会清除本页尚未提交的填写内容">刷新页面</button>}
+            </div>}
+
+            {revealed ? (
+              <Results
+                room={room}
+                onReroll={rerollResult}
+                onReselect={startAgain}
+                onHome={() => setLocation('/')}
+                rerollBusy={rerollRecommendations.isPending}
+                resetBusy={resetRoom.isPending}
+              />
+            ) : mySubmitted || room.state === 'waiting_for_partner' || room.state === 'waiting_for_other' ? (
+              <Waiting
+                roomCode={roomCode}
+                onCopy={copyInvite}
+                copied={copied}
+                devSimulationEnabled={devSimulationEnabled}
+                canSimulate={room.participantCount < room.requiredParticipantCount || Boolean(devParticipantId)}
+                simulationPending={simulationPending}
+                onSimulate={simulateSecondParticipant}
+              />
+            ) : hydratedDraft.current !== draftKey ? (
+              <p role="status" className="py-6 text-center text-sm text-[#8e8372]">正在恢复你的偏好…</p>
+            ) : (
+              <div>
+              {room.ownDraft && <p className="mb-3 text-xs leading-6 text-[#8e8372]" data-testid="text-draft-restored">已保留你上次保存的偏好，仅你可见。可直接重新确认，或修改后确认；双方确认后才会揭晓。尚未提交的修改不会保存。</p>}
+              <PreferenceForm
+                realRestaurants={Boolean(room.areaId)}
+                nickname={nickname}
+                setNickname={setNickname}
+                budget={budget}
+                setBudget={setBudget}
+                distance={distance}
+                setDistance={setDistance}
+                spice={spice}
+                setSpice={setSpice}
+                attitudes={attitudes}
+                setAttitudes={setAttitudes}
+                pending={submitPreferences.isPending}
+                onSubmit={handleSubmit}
+              />
+              </div>
+            )}
+            <div className="mt-6 flex items-center justify-center gap-1.5 text-[10px] text-[#aa9f8e]"><ShieldCheck size={13} className="text-[#77a17c]" />你的偏好只会在双方提交后参与匹配</div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function PreferenceForm({ realRestaurants, nickname, setNickname, budget, setBudget, distance, setDistance, spice, setSpice, attitudes, setAttitudes, pending, onSubmit }: {
+  realRestaurants: boolean;
+  nickname: string;
+  setNickname: (value: string) => void;
+  budget: string;
+  setBudget: (value: string) => void;
+  distance: string;
+  setDistance: (value: string) => void;
+  spice: string;
+  setSpice: (value: string) => void;
+  attitudes: Record<string, CuisineAttitudeType>;
+  setAttitudes: (value: Record<string, CuisineAttitudeType>) => void;
+  pending: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-3" data-testid="form-preferences">
+      <section className="surface rounded-[24px] p-4">
+        <div className="mb-3 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-[10px] bg-[#fff0dc] text-[#da762a]"><Compass size={15} /></span><h2 className="text-[14px] font-bold">先说说你的范围</h2></div>
+        <div className="space-y-4">
+          <ChoiceGroup label="人均预算" hint="价格等级 · 非精确报价" value={budget} onChange={setBudget} testId="choice-budget" options={[
+            { value: BudgetLevel.NUMBER_1, label: '¥', subLabel: '≤50 / 人' },
+            { value: BudgetLevel.NUMBER_2, label: '¥¥', subLabel: '50–100 / 人' },
+            { value: BudgetLevel.NUMBER_3, label: '¥¥¥', subLabel: '100+ / 人' },
+            { value: BudgetLevel.unlimited, label: '不限' },
+          ]} />
+          {!realRestaurants && <ChoiceGroup label="愿意走多远" hint="相对于固定示例位置" value={distance} onChange={setDistance} testId="choice-distance" options={[
+            { value: DistanceLimit.NUMBER_1, label: '1 km' }, { value: DistanceLimit.NUMBER_3, label: '3 km' }, { value: DistanceLimit.NUMBER_5, label: '5 km' }, { value: DistanceLimit.unlimited, label: '不限' },
+          ]} />}
+          {realRestaurants&&<p className="text-xs leading-6 text-[#958978]">按所选片区推荐，不使用定位。有限预算仅推荐有可靠人均资料的门店；人均未知仅在预算不限时参与。</p>}
+        </div>
+      </section>
+
+      <section className="surface rounded-[24px] p-4">
+        <div className="mb-1 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-[10px] bg-[#fff0dc] text-[#da762a]"><Heart size={15} /></span><h2 className="text-[14px] font-bold">今天想吃哪种？</h2></div>
+        <p className="mb-3 ml-9 text-[11px] text-[#a39785]">选择喜欢 / 可以 / 不太想；未选择 = 无所谓，再点可取消</p>
+        <div className="space-y-2">
+          {cuisines.map((cuisine) => {
+            const current = attitudes[cuisine];
+            const settings: { value: CuisineAttitudeType; label: string; selected: string }[] = [
+              { value: CuisineAttitude.love, label: '喜欢', selected: 'border-[#e9a05a] bg-[#fff1df] text-[#a95f24] shadow-[0_2px_6px_#e8873820] scale-[1.03]' },
+              { value: CuisineAttitude.okay, label: '可以', selected: 'border-[#a9c58c] bg-[#edf5e7] text-[#52733d] shadow-[0_1px_4px_#52733d18]' },
+              { value: CuisineAttitude.avoid, label: '不想', selected: 'border-[#e2a6a0] bg-[#fff0ee] text-[#a34843] shadow-[0_1px_4px_#a3484318]' },
+            ];
+            const badgeTone = current === CuisineAttitude.love
+              ? 'bg-[#fff1df] text-[#bd6e2c]'
+              : current === CuisineAttitude.okay
+                ? 'bg-[#edf5e7] text-[#64844d]'
+                : current === CuisineAttitude.avoid
+                  ? 'bg-[#fff0ee] text-[#b35e57]'
+                  : 'bg-[#f2ede3] text-[#9c7850]';
+            return (
+              <div key={cuisine} className="flex min-h-[43px] items-center justify-between rounded-[14px] bg-[#fffdf8] px-2.5" data-testid={`row-cuisine-${cuisine}`}>
+                <div className="flex items-center gap-2.5">
+                  <span className={`grid h-7 w-7 place-items-center rounded-[9px] text-[10px] font-bold transition-colors ${badgeTone}`}>{cuisineIcons[cuisine]}</span>
+                  <span className="text-[12px] font-semibold text-[#5d5346]">{cuisine}</span>
+                </div>
+                <div className="flex rounded-xl bg-[#f0ece4] p-[3px]">
+                  {settings.map((setting) => (
+                    <button type="button" key={setting.value} onClick={() => {
+                      const next = { ...attitudes };
+                      if (current === setting.value) delete next[cuisine];
+                      else next[cuisine] = setting.value;
+                      setAttitudes(next);
+                    }} aria-pressed={current === setting.value} className={`min-h-11 min-w-11 rounded-[9px] border px-2.5 py-1.5 text-[10px] font-semibold transition ${current === setting.value ? setting.selected : 'border-transparent bg-transparent text-[#8c8173] hover:bg-[#e8e1d6]'}`} data-testid={`choice-cuisine-${cuisine}-${setting.value}`}>
+                      {setting.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="surface rounded-[24px] p-4">
+        <ChoiceGroup label="辣度接受度" hint="今晚的辣度" value={spice} onChange={setSpice} testId="choice-spice" options={[
+          { value: SpicePreference.none, label: '不辣' }, { value: SpicePreference.mild, label: '微辣' }, { value: SpicePreference.any, label: '随意' },
+        ]} />
+      </section>
+
+      <section className="rounded-[22px] border border-[#f0dfc4] bg-[#fff7e9] p-4">
+        <label className="mb-2 block text-[12px] font-semibold text-[#74654f]" htmlFor="preference-nickname">给对方看的称呼 <span className="font-normal text-[#a39785]">· 可不填</span></label>
+        <input id="preference-nickname" value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={24} placeholder="比如：小林" className="h-11 w-full rounded-xl border border-[#eadcc5] bg-[#fffdf8] px-3 text-sm outline-none focus:border-[#eea260]" data-testid="input-preference-nickname" />
+      </section>
+      <button type="submit" disabled={pending} className="flex h-[54px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] transition hover:bg-[#e8802d] disabled:cursor-wait disabled:opacity-60" data-testid="button-submit-preferences">
+        {pending ? <LoaderCircle size={19} className="animate-spin" /> : <Check size={19} />}
+        {pending ? '悄悄收好你的选择…' : '我选好了，先保密'}
+      </button>
+      <p className="text-center text-[10px] leading-5 text-[#a39785]">默认「可以」的口味也会纳入匹配，不代表你必须喜欢。</p>
+    </form>
+  );
+}
+
+function Waiting({ roomCode, onCopy, copied, devSimulationEnabled, canSimulate, simulationPending, onSimulate }: {
+  roomCode: string;
+  onCopy: () => void;
+  copied: boolean;
+  devSimulationEnabled: boolean;
+  canSimulate: boolean;
+  simulationPending: boolean;
+  onSimulate: () => void;
+}) {
+  return (
+    <section className="surface page-enter overflow-hidden rounded-[28px]" data-testid="state-waiting">
+      <div className="relative flex min-h-[214px] flex-col items-center justify-center overflow-hidden bg-[#fff4dd] px-6 py-7 text-center">
+        <div className="absolute -left-8 -top-10 h-36 w-36 rounded-full bg-[#f6dfaa]/55" />
+        <div className="absolute -bottom-16 -right-6 h-44 w-44 rounded-full bg-[#f7d6bd]/55" />
+        <div className="pulse-soft relative grid h-[74px] w-[74px] place-items-center rounded-[25px] border-[5px] border-white bg-[#f3c958] text-[#805927] shadow-[0_8px_18px_#bd8b3130]">
+          <Utensils size={30} />
+        </div>
+        <p className="relative mt-4 text-[19px] font-extrabold tracking-[-.04em] text-[#443627]" data-testid="text-waiting-title">你的选择已提交</p>
+        <p className="relative mt-1 max-w-[260px] text-[12px] leading-5 text-[#8f7d62]">等另一个人完成选择，双方都提交后才会揭晓推荐。</p>
+      </div>
+      <div className="p-5">
+        <div className="flex items-center gap-3 rounded-2xl bg-[#f8f4ec] p-3.5">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-[#fffaf0] text-[#bf8743]"><ClipboardCheck size={19} /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-bold text-[#5e5344]">等对方完成选择</p>
+            <p className="mt-0.5 text-[10px] text-[#9c907d]">房间码 <span className="font-mono font-bold tracking-[.12em] text-[#78674f]">{roomCode}</span></p>
+          </div>
+          <span className="h-2 w-2 rounded-full bg-[#efa342] pulse-soft" />
+        </div>
+        <button type="button" onClick={onCopy} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[13px] font-bold text-[#6d604e] transition hover:border-[#e6b27a]" data-testid="button-copy-invite">
+          {copied ? <CheckCircle2 size={16} className="text-[#60946d]" /> : <Link2 size={16} />}
+          {copied ? '链接已复制' : '复制邀请链接'}
+        </button>
+        {devSimulationEnabled && canSimulate && (
+          <button
+            type="button"
+            onClick={onSimulate}
+            disabled={simulationPending}
+            className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#dfbd8a] bg-[#fffaf0] text-[12px] font-semibold text-[#987345] disabled:cursor-wait disabled:opacity-60"
+            data-testid="button-simulate-participant"
+          >
+            {simulationPending ? (
+              <LoaderCircle size={15} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} />
+            )}
+            {simulationPending ? '正在创建并提交…' : '模拟第二个参与者'}
+          </button>
+        )}
+        <p className="mt-3 text-center text-[10px] text-[#aea28f]">这一页只显示你的进度，不会显示任何人的口味。</p>
+      </div>
+    </section>
+  );
+}
+
+function RestaurantFeedbackDetails({feedback}:{feedback:NonNullable<RoomStatus['recommendations'][number]['feedback']>}){
+ return <details className="mt-3 rounded-xl border border-[#e5d9c4] bg-white/60 px-3 py-1" data-testid="restaurant-feedback-details">
+   <summary className="cursor-pointer py-2 font-semibold text-[#705b3a]">食客反馈与用餐提醒</summary>
+   <div className="space-y-3 pb-2" data-testid="restaurant-feedback">
+     {feedback.map((item,index)=><section key={item.sourceUrl+'-'+index} className="border-t border-[#eee5d6] pt-2">
+       <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 flex-wrap items-center gap-x-1 font-semibold underline">{item.sourceLabel}{item.rating!=null&&<span> · {item.rating.toFixed(1)}/5{item.reviewCount!=null?'（'+item.reviewCount+'条评价）':''}</span>} · 查看原始资料</a>
+       <p>食客反馈：{item.summary}</p>
+       {item.caution&&<p className="text-[#986334]">用餐提醒：{item.caution}</p>}
+       {item.spiceNote&&<p>口味线索：{item.spiceNote}</p>}
+       <p className="text-[10px] text-[#9d907b]">核对：{item.checkedAt}{item.publishedAt?' · 页面日期：'+item.publishedAt:''}</p>
+     </section>)}
+     <p className="text-[10px] text-[#9d907b]">公开食客样本转述，口味因人而异；平台评分与匹配参考分分别展示。</p>
+   </div>
+ </details>;
+}
+
+function RestaurantDetails({restaurant}:{restaurant:RoomStatus['recommendations'][number]}){
+ if(!restaurant.address)return null;
+ return <div className="mt-3 space-y-1.5 text-xs leading-6 text-[#8e7b5d]" data-testid="restaurant-details">
+   <p>{restaurant.address}</p>
+    {restaurant.spicyLevel==null&&<p>辣度：待核实，点单前请确认。</p>}
+   <p>{restaurant.averagePrice==null?'参考人均：暂无可靠资料':('参考人均：约 ¥'+restaurant.averagePrice+'／人')} · 资料核对：{restaurant.checkedAt}</p>
+   <div className="flex flex-wrap gap-x-4">
+     <a href={restaurantMapUrl(restaurant.name,restaurant.address)} target="_self" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold underline">在高德中打开</a>
+     <a href={restaurantMapUrl(restaurant.name,restaurant.address,false)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">网页版地图</a>
+     {restaurant.sourceUrl&&<a href={restaurant.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">门店资料来源</a>}
+     {restaurant.priceSource&&<a href={restaurant.priceSource} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center underline">人均参考来源</a>}
+   </div>
+ {restaurant.feedback?.length ? <RestaurantFeedbackDetails feedback={restaurant.feedback}/> : null}
+   </div>;
+}
+
+function Results({ room, onReroll, onReselect, onHome, rerollBusy, resetBusy }: {
+  room: RoomStatus;
+  onReroll: () => void;
+  onReselect: () => void;
+  onHome: () => void;
+  rerollBusy: boolean;
+  resetBusy: boolean;
+}) {
+  const recommendations = room.recommendations || [];
+  const [showAllReasons, setShowAllReasons] = useState(false);
+  const firstRecommendation = recommendations[0];
+  useEffect(() => {
+    setShowAllReasons(false);
+  }, [firstRecommendation?.name]);
+  const briefReasons = firstRecommendation?.reasons.slice(0, 3) ?? [];
+  const actionBusy = rerollBusy || resetBusy;
+
+  return (
+    <section data-testid="state-results">
+      <div className="surface page-enter overflow-hidden rounded-[28px]">
+        <div className="relative overflow-hidden bg-[#f6cd67] px-5 pb-6 pt-7">
+          <span className="absolute -right-8 -top-12 h-40 w-40 rounded-full border-[22px] border-[#f9df9b]/60" />
+          <span className="absolute right-12 top-10 h-3 w-3 rounded-full bg-[#fff6dc]" />
+          <div className="relative flex w-fit items-center gap-2 rounded-full bg-[#fff6dd]/70 px-3 py-1.5 text-[10px] font-bold tracking-[.06em] text-[#8b6831]"><CheckCircle2 size={13} />双方已完成选择</div>
+          <h2 className="display-title relative mt-4 max-w-[280px] text-[30px] font-extrabold text-[#473821]">{recommendations.length ? <>今晚的答案，<br />有眉目了。</> : '看来今天有点难选 😅'}</h2>
+          <p className="relative mt-2 text-[12px] text-[#856b3f]">{recommendations.length ? '先看最合适的一家，也可以继续换一组。' : '暂时没有找到同时符合你们要求的选择。'}</p>
+        </div>
+        <div className="space-y-3 p-4">
+          <p className="text-[11px] leading-relaxed text-[#8e7b5d]" data-testid="text-ranking-explanation">{RANKING_DESCRIPTION}</p>
+          {recommendations.length === 0 ? (
+            <div className="rounded-[20px] bg-[#f8f4ec] px-4 py-7 text-center" data-testid="empty-recommendations">
+              <MapPin size={24} className="mx-auto text-[#c89c62]" />
+              <p className="mt-2 text-sm font-bold text-[#645746]">没有共同候选，不会自动放宽限制</p>
+              <p className="mt-2 text-xs leading-6 text-[#9d907b]">{room.areaId ? "可能原因：片区资料尚少、菜系被否决、预算过低，或该片区的人均资料仍待核实。可重选偏好，或回首页换片区；不会自动放宽条件。" : "可能原因：菜系限制过多、预算过低、距离范围过小，或这些条件组合过于严格。"}</p>
+            </div>
+          ) : (
+            <>
+              {firstRecommendation && (
+                <article className="stagger-in rounded-[24px] border-2 border-[#edc781] bg-[#fff9ed] p-4 shadow-[0_8px_20px_#bd8b3114]" data-testid="card-recommendation-0">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="rounded-full bg-[#f8e5ae] px-2.5 py-1 text-[10px] font-bold tracking-[.04em] text-[#80612d]">首选推荐</span>
+                    <div className="text-right">
+                      <span className="text-[20px] font-extrabold leading-none text-[#d9742b]" data-testid="text-recommendation-match-0">{firstRecommendation.matchScore}/100</span>
+                      <span className="ml-1 text-[9px] font-semibold text-[#9c8057]">综合参考分</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] bg-[#f7d77f] text-[#815e2c]">
+                      <Sparkles size={21} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-[19px] font-extrabold tracking-[-.04em] text-[#43392c]" data-testid="text-recommendation-name-0">{firstRecommendation.name}</h3>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-2 text-[11px] font-semibold text-[#8e7b5d]">
+                        <span>{firstRecommendation.cuisine}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{firstRecommendation.priceLevel===null?'人均待核实':'¥'.repeat(Math.max(1,Math.min(3,firstRecommendation.priceLevel)))}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>{firstRecommendation.distance===null?"片区内门店":`${firstRecommendation.distance.toFixed(1)} km`}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <RestaurantDetails restaurant={firstRecommendation} />
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {briefReasons.map((reason, reasonIndex) => (
+                      <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1.5 text-[10px] font-semibold text-[#75664f]" data-testid={`text-match-reason-0-${reasonIndex}`}>{reason}</span>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowAllReasons((visible) => !visible)}
+                    aria-expanded={showAllReasons}
+                    className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-bold text-[#a36e34]"
+                    data-testid="button-why-recommended"
+                  >
+                    为什么推荐？
+                    <ChevronDown size={14} className={`transition-transform ${showAllReasons ? 'rotate-180' : ''}`} />
+                  </button>
+                  {showAllReasons && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 border-t border-[#efe2c7] pt-3" data-testid="details-recommendation-reasons">
+                      {firstRecommendation.reasons.map((reason, reasonIndex) => (
+                        <span key={`${reason}-${reasonIndex}`} className="rounded-full bg-[#f6f0e4] px-2.5 py-1.5 text-[10px] font-medium text-[#7e705b]">{reason}</span>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              )}
+              {recommendations.slice(1, 3).map((restaurant, index) => (
+                <article key={`${restaurant.name}-${index + 1}`} className="stagger-in rounded-[19px] border border-[#eee5d7] bg-[#fffdf9] px-3.5 py-3" data-testid={`card-recommendation-${index + 1}`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-[#f2ecdf] text-[#8c7859]"><Utensils size={17} /></div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="break-words text-[14px] font-bold text-[#514638]" data-testid={`text-recommendation-name-${index + 1}`}>{restaurant.name}</h3>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10px] font-medium text-[#958875]">
+                        <span>{restaurant.cuisine}</span><span aria-hidden="true">·</span><span>{restaurant.distance===null?"片区内门店":`${restaurant.distance.toFixed(1)} km`}</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-[15px] font-extrabold text-[#d27a38]" data-testid={`text-recommendation-match-${index + 1}`}>{restaurant.matchScore}/100</span>
+                      <span className="block text-[8px] font-medium text-[#a39785]">综合参考分</span>
+                    </div>
+                  </div>
+                  <RestaurantDetails restaurant={restaurant} />
+                </article>
+              ))}
+            </>
+          )}
+          <div className="flex items-start gap-2 rounded-[16px] bg-[#f7f3eb] px-3.5 py-3 text-[10px] leading-[1.65] text-[#978a76]">
+            <ShieldCheck size={14} className="mt-0.5 shrink-0 text-[#7d9b78]" />
+            <p>{room.areaId ? "公开资料整理的真实门店；核对日期不代表当天营业确认。参考人均不等于实际账单，出发前请核实。" : "旧饭局沿用示例餐厅数据；距离相对于固定示例位置，价格是等级参考。"}综合参考分是内部偏好评分，不是排名分或满意概率。偏好版本 {room.preferenceRevision} · {room.algorithmVersion}</p>
+          </div>
+        </div>
+      </div>
+      <button type="button" onClick={onReroll} disabled={actionBusy || !room.hasMoreRecommendations} className="mt-4 flex h-[53px] w-full items-center justify-center gap-2 rounded-2xl bg-[#f28c3a] text-[15px] font-bold text-white shadow-[0_7px_16px_#e9873840] disabled:cursor-wait disabled:opacity-60" data-testid="button-reroll-recommendations">
+        {rerollBusy ? <LoaderCircle size={18} className="animate-spin" /> : <RotateCcw size={17} />}
+        {rerollBusy ? '正在换一组…' : '换一组推荐'}
+      </button>
+      <p className="mt-2 text-center text-[10px] text-[#a39785]">{room.hasMoreRecommendations ? '保留双方当前偏好，只更换候选推荐' : '暂时没有更多符合条件的推荐。'}</p>
+      <button type="button" onClick={onReselect} disabled={actionBusy} className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-[#e8dfcf] bg-[#fffdf8] text-[13px] font-bold text-[#766a58] disabled:opacity-60" data-testid="button-reselect-preferences">
+        {resetBusy ? <LoaderCircle size={16} className="animate-spin" /> : <RotateCcw size={15} />}
+        {resetBusy ? '正在重新选偏好…' : recommendations.length === 0 ? '重新调整偏好' : '重新选偏好'}
+      </button>
+      <p className="mt-2 text-center text-[10px] leading-relaxed text-[#a39785]">重选保留各自已保存的偏好，仅本人可见。旧结果立即失效，双方修改或重新确认后才会揭晓。操作前会再次确认。</p>
+      <button type="button" onClick={onHome} disabled={actionBusy} className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl text-[12px] font-semibold text-[#9c8e7a] disabled:opacity-60" data-testid="button-new-room">
+        开一个新房间 <ArrowDownRight size={14} />
+      </button>
+      <p className="mt-2 text-center text-[10px] text-[#aea28f]" data-testid="text-ranked-note">公平优先推荐，综合参考分不代表排名</p>
+    </section>
+  );
+}
+
+function Router() {
+  return (
+    <RoutedErrorBoundary>
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/room/:roomCode" component={RoomPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </RoutedErrorBoundary>
+  );
+}
+
+function RoutedErrorBoundary({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+  return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
+}
+
+function PwaRegistration() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register(`${'/'}sw.js`).catch(() => undefined);
+    }
+  }, []);
+  return null;
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <WouterRouter base={'/'.replace(/\/$/, '')}>
+          <PwaRegistration />
+          <Router />
+        </WouterRouter>
+        <Toaster />
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

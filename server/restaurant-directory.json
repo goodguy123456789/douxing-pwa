@@ -1,0 +1,696 @@
+[
+  {
+    "id": "nanping-guoji",
+    "areaId": "nanping",
+    "name": "郭记香巴渝·烤全羊·烤乳猪·柴火鸡（南坪店）",
+    "address": "重庆市南岸区万寿路20号贝蒙松藻中心4楼",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.amap.com/place/B0FFILM5SH",
+    "evidence": "agent-reach Exa 索引中的高德门店页列明南坪分店、完整地址和中餐厅分类；公开餐厅楼层地址。直接网页为动态地图，未取得当日营业确认。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "nanping-naore",
+    "areaId": "nanping",
+    "name": "皕·闹热老火锅（南坪店）",
+    "address": "重庆市南岸区南坪东路8号2单元（重庆现代女子医院旁）",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.amap.com/place/B0IKJA3R9O",
+    "evidence": "agent-reach Exa 高德门店页索引明确分店名、地址与火锅店分类；有顾客描述店内就餐，资料不等于当日开门确认。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "nanping-yudashi",
+    "areaId": "nanping",
+    "name": "渝大狮毛肚老火锅（南坪总店）",
+    "address": "重庆市南岸区南坪东路15号新洲大厦2楼",
+    "cuisine": "火锅",
+    "averagePrice": 75,
+    "priceSource": "https://gs.ctrip.com/html5/you/foods/fooddetail/158/5419992.html",
+    "sourceUrl": "https://www.amap.com/place/B0FFITHIRX",
+    "evidence": "agent-reach Exa 的高德分店页索引列明南坪总店、完整大厦楼层地址及火锅店分类。仅采用位置与门店类型，不采用旧评论作为今日营业证明。 2026-10-24检索到携程独立门店页（抓取日期当日），明确参考人均75元、南坪东路15号和堂食桌位设施；仅作为平台参考消费，非账单保证。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "nanping-haidilao",
+    "areaId": "nanping",
+    "name": "海底捞（南坪协信店）",
+    "address": "重庆市南岸区协信星光时代广场7层7F-007号商铺",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://cq.bendibao.com/wangdian/dian/5788369.shtm",
+    "evidence": "agent-reach Exa 查询的本地宝海底捞分店目录列明分店及7F-007号；另有新北旅游网2025-02-19门店页同楼层商铺地址交叉印证，符合商场公开堂食地址。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "nanping-shangjing",
+    "areaId": "nanping",
+    "name": "上井精致料理（重庆市南坪店）",
+    "address": "重庆市南岸区江南大道28号协信星光时代广场L5层017号",
+    "cuisine": "日料",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://m.map.360.cn/m/search/detail/pid=c903d6936a255275",
+    "evidence": "agent-reach Exa 查询到360地图独立门店页，列明上井精致料理分店、江南大道28号及L5-017商铺；为商场内公开餐厅，无可靠人均资料。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "danzishi-yuxin",
+    "areaId": "danzishi",
+    "name": "渝信川菜（重庆南滨店）",
+    "address": "重庆市南岸区南滨路67号",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "http://www.yuxin1997.com/content/details12_119.html",
+    "evidence": "使用agent-reach Jina完整读取商家官网门店页：列明南滨路67号、川菜、零餐、包房以及餐位/宴会厅描述；官网目录同时列出分店。未收录营业时间承诺。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null,
+    "cuisineDetail": "川菜"
+  },
+  {
+    "id": "danzishi-laoyoudie",
+    "areaId": "danzishi",
+    "name": "老油碟三拖一老火锅（弹子石店）",
+    "address": "重庆市南岸区大佛段正街11号3-2",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.amap.com/place/B0IKYRCM3W",
+    "evidence": "agent-reach Exa 的高德门店页索引列明弹子石店、大佛段正街11号3-2和火锅店分类。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "danzishi-fanmeizi",
+    "areaId": "danzishi",
+    "name": "范梅子地摊江湖菜（弹子石黑金冠好店）",
+    "address": "重庆市南岸区弹子石街道大佛段正街25号",
+    "cuisine": "中餐",
+    "averagePrice": 65,
+    "priceSource": "https://www.dianping.com/shop/GaGrpNg9M1VeLDje",
+    "sourceUrl": "https://www.dianping.com/shop/GaGrpNg9M1VeLDje",
+    "evidence": "agent-reach Exa 高德门店页索引明确弹子石街道地址、中餐厅分类；2025顾客记录为重庆江湖菜，未据此推断辣度可调。 2026-10-25通过用户已登录浏览器读取点评同址分店页，核实参考人均、评分与可见评价；数字取门店详情，不混用搜索页。",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "cuisineDetail": "川菜",
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/GaGrpNg9M1VeLDje",
+        "checkedAt": "2026-10-25",
+        "rating": 3.9,
+        "reviewCount": 3611,
+        "summary": "可见食客提到毛血旺、红油核桃肉及份量。",
+        "caution": "上菜速度反馈差异很大：既有较快也有久等的评价，赶时间可先问出餐。",
+        "spiceNote": "有食客建议不能吃辣需提前交代微辣；尚未取得全店辣度标准。"
+      }
+    ]
+  },
+  {
+    "id": "danzishi-yexifan",
+    "areaId": "danzishi",
+    "name": "夜稀饭（群慧路）",
+    "address": "重庆市南岸区弹子石新街2号附1号",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.amap.com/place/B0017915UG",
+    "evidence": "agent-reach Exa 高德独立门店页索引列明夜稀饭（群慧路）、弹子石新街2号附1号和中餐厅分类；不将店名内道路与实际门牌强行统一。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "danzishi-paoding",
+    "areaId": "danzishi",
+    "name": "庖丁家鲜牛肉火锅（南滨路1891店）",
+    "address": "重庆市南岸区南滨路东原1891A馆2楼庖丁家牛肆",
+    "cuisine": "火锅",
+    "averagePrice": 85,
+    "priceSource": "https://you.ctrip.com/food/chongqing158/22617085.html",
+    "sourceUrl": "http://www.paodingj.com/p/99",
+    "evidence": "agent-reach Exa 的庖丁家官网门店目录索引直接列出南滨路1891店及东原1891A馆2楼地址。Jina正文读取422，证据为官网搜索索引；不作实时营业承诺。 携程同分店页名称为庖丁家水煮牛排火锅（南滨路1891店），同址东原1891A馆L2，列用户反馈参考人均85元。另一聚合页为74元，未采用；平台数值有差异，非账单保证。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "chayuan-yuxin",
+    "areaId": "chayuan",
+    "name": "渝信川菜（茶园店）",
+    "address": "重庆市南岸区茶园新区通江大道96号附1号",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "http://www.yuxin1997.com/content/details12_1524.html",
+    "evidence": "agent-reach Jina完整读取商家官网分店页，列明茶园新区地址、川菜/粤菜、零餐和包房，能核实对外堂食用途。未找到可靠人均。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null,
+    "cuisineDetail": "川菜"
+  },
+  {
+    "id": "chayuan-zilong",
+    "areaId": "chayuan",
+    "name": "紫龙火锅（重庆长桥店）",
+    "address": "重庆市南岸区茶园通江大道96号长桥左岸",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "http://www.yuxin1997.com/content/details12_1338.html",
+    "evidence": "agent-reach Jina完整读取渝信旗下商家官网门店页，列明重庆长桥店、茶园地址和重庆火锅特色。与渝信茶园店为官网分别列出的两个品牌门店，不合并。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "chayuan-guijing",
+    "areaId": "chayuan",
+    "name": "归井老火锅（茶园店）",
+    "address": "重庆市南岸区水云路13号附1号",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.amap.com/place/B0L027O3K4",
+    "evidence": "agent-reach Exa 的高德独立门店页列明茶园店、水云路13号附1号和火锅店类别；不使用地图坐标生成距用户距离。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "chayuan-eguan",
+    "areaId": "chayuan",
+    "name": "鹅冠港式茶餐厅（悦地购物中心店）",
+    "address": "重庆市南岸区通江大道186号悦地购物中心F5",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://maps.apple.com/place?auid=1118637083758266&lsp=57879",
+    "evidence": "Apple Maps独立门店页列明中文名、通江大道186号悦地购物中心F5及餐厅类别；agent-reach Exa新北旅游页另列茶园悦地购物中心L5002铺。采用地图完整商场地址，不声称即时营业。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null,
+    "cuisineDetail": "粤菜"
+  },
+  {
+    "id": "chayuan-liushi",
+    "areaId": "chayuan",
+    "name": "刘氏老火锅茶园店",
+    "address": "重庆市南岸区兴塘路8号附30号",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://poi.mapbar.com/chongqing/MAPIHEZRQMQWQWYWJASNC",
+    "evidence": "agent-reach Exa查询到图吧独立门店页，信息更新时间2026-05-08，列明茶园店、兴塘路8号附30号及中餐馆分类；附近为茶园新城中学等茶园地点。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "cqupt-tihuayu",
+    "areaId": "cqupt",
+    "name": "蹄花鱼（崇文路店）",
+    "address": "重庆市南岸区崇文路1号附121号（邮电大学腾飞门对面，零食很忙后面）",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://www.sgpabj.com/bendi/8358829.html",
+    "evidence": "agent-reach Jina完整读取新北旅游独立门店页，更新时间2025-02-19；明确邮电大学腾飞门对面、校外崇文路1号附121号，页面归于中餐厅并有门店图片。辣度与参考人均未知。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "cqupt-wujie",
+    "areaId": "cqupt",
+    "name": "无届青年餐馆（重庆邮电大学店）",
+    "address": "重庆市南岸区南山路173附104号（346公交车站背街小巷）",
+    "cuisine": "中餐",
+    "averagePrice": 45,
+    "priceSource": "https://www.dianping.com/shop/H3J8BKzf6vCd8vrJ",
+    "sourceUrl": "https://www.dianping.com/shop/H3J8BKzf6vCd8vrJ",
+    "evidence": "agent-reach Jina完整读取Trip.com独立门店页，地址为南山路173附104号；页面有餐厅内景、外观、餐桌与堂食设施，顾客描述学校对面。只显示美元价格带，不能换算成人民币人均。 2026-10-25通过用户已登录浏览器读取点评同址分店页，核实参考人均、评分与可见评价；数字取门店详情，不混用搜索页。 地址门牌与原Trip.com一致，公交地标由原304更新为点评详情所列346。",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/H3J8BKzf6vCd8vrJ",
+        "checkedAt": "2026-10-25",
+        "rating": 4.6,
+        "reviewCount": 651,
+        "summary": "可见食客提到日本豆腐煲、玉米烙等，也有聚餐体验。",
+        "caution": "门店在背街小巷；对部分新菜和份量有不同评价，实际消费可能高于参考人均。",
+        "spiceNote": "有食客觉得牛肉类偏辣、咖喱鸡偏甜；不据个别菜推定全店辣度。"
+      },
+      {
+        "sourceLabel": "小红书",
+        "sourceUrl": "https://www.xiaohongshu.com/explore/69648f37000000000a03c5b9",
+        "checkedAt": "2026-10-25",
+        "publishedAt": "01-12（页面未显示年份）",
+        "summary": "一位食客记录在重邮分店点三道菜共90元；未写用餐人数，不能据此计算人均。",
+        "caution": "这是单次消费记录，不能当作当前套餐报价。"
+      }
+    ]
+  },
+  {
+    "id": "cqupt-qiluying",
+    "areaId": "cqupt",
+    "name": "柒露营串串火锅（南山重邮店）",
+    "address": "重庆市南岸区南山路173号静园小区1栋附1-6号",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://my.trip.com/restaurant/china/chongqing/detail/restaurant-15325680/",
+    "evidence": "Trip.com独立门店页列明南山重邮店、静园小区完整地址、火锅分类与餐桌/儿童座椅等堂食设施。无可核实人民币人均；不使用美元价格带换算。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "cqupt-chengmen",
+    "areaId": "cqupt",
+    "name": "城门老火锅",
+    "address": "重庆市南岸区崇文路9号附4号",
+    "cuisine": "火锅",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://poi.mapbar.com/chongqing/MAPIXPYNHOTMYPFNHMTBC",
+    "evidence": "图吧独立门店页更新时间2026-10-08，列明崇文路9号附4号及中餐馆分类；agent-reach Exa高德附近菜鸟驿站页也以城门老火锅为地标，交叉支持校外崇文小区位置。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null
+  },
+  {
+    "id": "cqupt-jiuniu",
+    "areaId": "cqupt",
+    "name": "九九牛肉馆（南山路店）",
+    "address": "重庆市南岸区南山路95号附平街（重庆市中药研究院斜对面）",
+    "cuisine": "中餐",
+    "averagePrice": null,
+    "priceSource": null,
+    "sourceUrl": "https://hk.trip.com/restaurant/china/chongqing/detail/restaurant-367063/",
+    "evidence": "Trip.com独立门店页列明川菜分类、南山路95号附平街与中药研究院斜对面，展示堂食菜品和餐厅设施。旧2020华龙网为南山路99号，城市吧为学生公寓附近描述，存在门牌差异；采用平台当前详细地址并保留复核标记。旧53/55/60元人均互异且过时，全部弃用。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null,
+    "cuisineDetail": "川菜"
+  },
+  {
+    "id": "nanping-xiaobaxian",
+    "areaId": "nanping",
+    "name": "小八仙·精品川菜（南坪店）",
+    "address": "重庆市南岸区江南大道28号星光时代广场6楼（M电影院旁）",
+    "cuisine": "中餐",
+    "averagePrice": 68,
+    "priceSource": "https://you.ctrip.com/food/chongqing158/5419250.html",
+    "sourceUrl": "https://you.ctrip.com/food/chongqing158/5419250.html",
+    "evidence": "携程独立门店页明确完整分店名、江南大道28号6楼地址、川菜分类和来自用户反馈的参考人均68元；这是平台当前展示的参考值，页面用户点评较旧，无价格更新时间，不能说当天实际消费。大众点评索引为72元，来源有差异，优先采用有完整地址的携程资料。",
+    "checkedAt": "2026-10-24",
+    "spicyLevel": null,
+    "cuisineDetail": "川菜"
+  },
+  {
+    "id": "nanping-yuanquan",
+    "areaId": "nanping",
+    "name": "源泉食店",
+    "address": "重庆市南岸区花园七村19栋",
+    "cuisine": "中餐",
+    "averagePrice": 26,
+    "priceSource": "https://www.dianping.com/shop/l4ysAyoG798cL61z",
+    "sourceUrl": "https://www.dianping.com/shop/l4ysAyoG798cL61z",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/l4ysAyoG798cL61z",
+        "checkedAt": "2026-10-25",
+        "rating": 4,
+        "reviewCount": 1040,
+        "summary": "可见食客提到份量实在、家常菜下饭。",
+        "caution": "有饭点等位近一小时和毛血旺偏咸的反馈；时间紧可提前询问。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "nanping-xiafancai",
+    "areaId": "nanping",
+    "name": "下饭菜·家常菜",
+    "address": "重庆市南岸区珊瑚路8号1栋1层商业5号",
+    "cuisine": "中餐",
+    "averagePrice": 39,
+    "priceSource": "https://www.dianping.com/shop/G6EOyXLeabS9n0nC",
+    "sourceUrl": "https://www.dianping.com/shop/G6EOyXLeabS9n0nC",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/G6EOyXLeabS9n0nC",
+        "checkedAt": "2026-10-25",
+        "rating": 3.9,
+        "reviewCount": 99,
+        "summary": "可见食客喜欢尖椒兔、双椒鲫鱼和菜量。",
+        "caution": "有食客认为酸菜粉丝汤酸味不明显；门店是朴素家常馆子。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "nanping-longma",
+    "areaId": "nanping",
+    "name": "龙马家常菜（万达店）",
+    "address": "重庆市南岸区珊瑚路8号-1-1之07-08号",
+    "cuisine": "中餐",
+    "averagePrice": 38,
+    "priceSource": "https://www.dianping.com/shop/l414hyjXzGO4UQXW",
+    "sourceUrl": "https://www.dianping.com/shop/l414hyjXzGO4UQXW",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/l414hyjXzGO4UQXW",
+        "checkedAt": "2026-10-25",
+        "rating": 4.3,
+        "reviewCount": 150,
+        "summary": "可见食客提到鱼香肉丝、苕皮回锅肉下饭，份量较足。",
+        "caution": "有食客反馈干锅出餐稍慢；鱼香肉丝偏糖醋风味。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "nanping-jiangyiwan",
+    "areaId": "nanping",
+    "name": "蒋一碗家常菜（后堡社区店）",
+    "address": "重庆市南岸区后堡46号附3号（后堡实验幼儿园对面）",
+    "cuisine": "中餐",
+    "averagePrice": 28,
+    "priceSource": "https://www.dianping.com/shop/k65c2p5xnQqjD9Jz",
+    "sourceUrl": "https://www.dianping.com/shop/k65c2p5xnQqjD9Jz",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/k65c2p5xnQqjD9Jz",
+        "checkedAt": "2026-10-25",
+        "rating": 4.1,
+        "reviewCount": 45,
+        "summary": "可见食客提到份量实在，家常菜选择较多。",
+        "caution": "评价对口味有分歧，有食客觉得偏油、偏重口；店面较小。",
+        "spiceNote": "有一位带孩子的食客认可清淡菜，不能据此保证全店不辣。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "danzishi-heji",
+    "areaId": "danzishi",
+    "name": "何记餐馆",
+    "address": "重庆市南岸区涂山路571号大石坝小区",
+    "cuisine": "中餐",
+    "averagePrice": 38,
+    "priceSource": "https://www.dianping.com/shop/kaMxeiRg8IWVZS9G",
+    "sourceUrl": "https://www.dianping.com/shop/kaMxeiRg8IWVZS9G",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/kaMxeiRg8IWVZS9G",
+        "checkedAt": "2026-10-25",
+        "rating": 4,
+        "reviewCount": 57,
+        "summary": "可见食客提到泡椒牛肉丝、肥肠等家常菜有特色。",
+        "caution": "有食客认为部分菜价格或口味不合预期；桌数不多。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "danzishi-tiangui",
+    "areaId": "danzishi",
+    "name": "天贵热油豆花饭（弹子石泽科店）",
+    "address": "重庆市南岸区弹子石街道群慧路19号附10号、附11号",
+    "cuisine": "中餐",
+    "averagePrice": 28,
+    "priceSource": "https://www.dianping.com/shop/FnkPR4QN6nFWDdS1",
+    "sourceUrl": "https://www.dianping.com/shop/FnkPR4QN6nFWDdS1",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/FnkPR4QN6nFWDdS1",
+        "checkedAt": "2026-10-25",
+        "rating": 4.4,
+        "reviewCount": 736,
+        "summary": "可见食客喜欢豆花与自选蘸料，也提到肝腰合炒。",
+        "caution": "自选调料后需要淋热油，按店员指引操作并注意容器。",
+        "spiceNote": "蘸料可自选不代表所有炒菜都可免辣，点单时需确认。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "danzishi-mingkang",
+    "areaId": "danzishi",
+    "name": "明康酒家（弹子石店）",
+    "address": "重庆市南岸区弹子石街道弹子石石桥一村76号",
+    "cuisine": "中餐",
+    "averagePrice": 63,
+    "priceSource": "https://www.dianping.com/shop/l7jNT7U2yyJpZjCs",
+    "sourceUrl": "https://www.dianping.com/shop/l7jNT7U2yyJpZjCs",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/l7jNT7U2yyJpZjCs",
+        "checkedAt": "2026-10-25",
+        "rating": 4.4,
+        "reviewCount": 548,
+        "summary": "可见食客喜欢肘子、鱼类菜和粉蒸肉，适合多人分餐。",
+        "caution": "有点评及小红书食客反馈桌椅和装修较旧；加菜会提高实际人均。",
+        "spiceNote": "有食客认为辣子鸡较辣，不能吃辣需逐道确认。"
+      },
+      {
+        "sourceLabel": "小红书",
+        "sourceUrl": "https://www.xiaohongshu.com/explore/6ac0ba11000000001c02e106",
+        "checkedAt": "2026-10-25",
+        "publishedAt": "10-03（页面未显示年份）",
+        "summary": "一位食客使用双人团购并加两道菜后，记录人均约50元。",
+        "caution": "该笔记与点评63元参考人均有差异；预算筛选采用点评分店值，旧团购条件不作为当前报价。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "danzishi-luoditan",
+    "areaId": "danzishi",
+    "name": "罗地摊",
+    "address": "重庆市南岸区涂山路583号",
+    "cuisine": "中餐",
+    "averagePrice": 45,
+    "priceSource": "https://www.dianping.com/shop/l4I5doIq5g7OH2u9",
+    "sourceUrl": "https://www.dianping.com/shop/l4I5doIq5g7OH2u9",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/l4I5doIq5g7OH2u9",
+        "checkedAt": "2026-10-25",
+        "rating": 4.1,
+        "reviewCount": 492,
+        "summary": "可见食客多提到泡椒牛肉丝、现炒风味与份量。",
+        "caution": "用餐环境较朴素，有外摆；在意装修或避热可先询问座位。",
+        "spiceNote": "泡椒菜是来源中常见菜品，未核实整店辣度及调整范围。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "chayuan-yuxuewang",
+    "areaId": "chayuan",
+    "name": "渝血旺（山水一舍店）",
+    "address": "重庆市南岸区长生桥镇同景路8号附7号",
+    "cuisine": "中餐",
+    "averagePrice": 37,
+    "priceSource": "https://www.dianping.com/shop/k2VdIGr7xInQU4Rv",
+    "sourceUrl": "https://www.dianping.com/shop/k2VdIGr7xInQU4Rv",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/k2VdIGr7xInQU4Rv",
+        "checkedAt": "2026-10-25",
+        "rating": 4.3,
+        "reviewCount": 77,
+        "summary": "可见食客提到肝腰合炒、锅贴饺和鱼香肉丝。",
+        "caution": "对招牌毛血旺的香味反馈有分歧，不按招牌名称保证口味。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "chayuan-liaosan",
+    "areaId": "chayuan",
+    "name": "廖三豆花馆",
+    "address": "重庆市南岸区长生桥镇河街45号附11号",
+    "cuisine": "中餐",
+    "averagePrice": 39,
+    "priceSource": "https://www.dianping.com/shop/ka5xuQLT63dyJ253",
+    "sourceUrl": "https://www.dianping.com/shop/ka5xuQLT63dyJ253",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/ka5xuQLT63dyJ253",
+        "checkedAt": "2026-10-25",
+        "rating": 4,
+        "reviewCount": 135,
+        "summary": "可见食客提到豆花口感与鱼香肉丝等家常菜。",
+        "caution": "门店藏在长生桥老镇小巷，有位置不好找、门口停车不便的反馈。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "chayuan-qiniang",
+    "areaId": "chayuan",
+    "name": "七嬢金猪肝",
+    "address": "重庆市南岸区广福大道2号附15号",
+    "cuisine": "中餐",
+    "averagePrice": 45,
+    "priceSource": "https://www.dianping.com/shop/H7MVD2ypX5UwtVMh",
+    "sourceUrl": "https://www.dianping.com/shop/H7MVD2ypX5UwtVMh",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/H7MVD2ypX5UwtVMh",
+        "checkedAt": "2026-10-25",
+        "rating": 4.2,
+        "reviewCount": 206,
+        "summary": "可见食客喜欢特色金猪肝和泡萝卜搭配。",
+        "caution": "有食客认为部分菜偏咸；店内桌数不多，饭点可能较满。",
+        "spiceNote": "来源多提泡椒风味，尚未取得全店可调辣度的菜单依据。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "cqupt-zuomi",
+    "areaId": "cqupt",
+    "name": "佐米（邮电大学店）",
+    "address": "重庆市南岸区南山街道崇文路1号附123号",
+    "cuisine": "小吃",
+    "averagePrice": 16,
+    "priceSource": "https://www.dianping.com/shop/G25IiGrvws8LbSCg",
+    "sourceUrl": "https://www.dianping.com/shop/G25IiGrvws8LbSCg",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/G25IiGrvws8LbSCg",
+        "checkedAt": "2026-10-25",
+        "rating": 3.9,
+        "reviewCount": 35,
+        "summary": "可见食客提到汤饭份量、鸡腿和价格；有重邮校友复访。",
+        "caution": "有食客反馈部分旧菜已调整；实际供应以点单菜单为准。",
+        "spiceNote": "有番茄、三鲜等菜品记录，不能据名称认定无辣。"
+      },
+      {
+        "sourceLabel": "小红书",
+        "sourceUrl": "https://www.xiaohongshu.com/explore/69a6846e000000001a035c48",
+        "checkedAt": "2026-10-25",
+        "publishedAt": "03-03（页面未显示年份）",
+        "summary": "一位食客提到三鲜烫饭、鸡腿饭份量及约16元人均，与点评参考值一致。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "cqupt-mucun",
+    "areaId": "cqupt",
+    "name": "暮村厨房·云贵川山野小炒（邮电大学店）",
+    "address": "重庆市南岸区南山街道邮电大学堡上园47号（崇文路2号附14号，重邮大门对面商铺）",
+    "cuisine": "中餐",
+    "averagePrice": 36,
+    "priceSource": "https://www.dianping.com/shop/G2R4lDNZlV8bxwZv",
+    "sourceUrl": "https://www.dianping.com/shop/G2R4lDNZlV8bxwZv",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/G2R4lDNZlV8bxwZv",
+        "checkedAt": "2026-10-25",
+        "rating": 4.4,
+        "reviewCount": 172,
+        "summary": "可见食客喜欢尖椒鸡和份量，并描述为校门对面的两层临街小店。",
+        "caution": "有食客觉得肉末茄子口味较闷或蒜味较重；按人数适量点菜。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "cqupt-jigongbao",
+    "areaId": "cqupt",
+    "name": "重庆鸡公煲（邮电大学店）",
+    "address": "重庆市南岸区南山街道南山路邮村73附B栋3-60号（堕落街）",
+    "cuisine": "中餐",
+    "averagePrice": 23,
+    "priceSource": "https://www.dianping.com/shop/k2ab4Lfv0pC73Wgg",
+    "sourceUrl": "https://www.dianping.com/shop/k2ab4Lfv0pC73Wgg",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/k2ab4Lfv0pC73Wgg",
+        "checkedAt": "2026-10-25",
+        "rating": 4,
+        "reviewCount": 121,
+        "summary": "可见食客提到小煲、汤锅和干锅选择，有重邮校友复访。",
+        "caution": "对鸡肉口味有不同反馈；加配菜后实际消费会变化。",
+        "spiceNote": "有食客提到点特辣，但未核实具体可选辣度档位。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  },
+  {
+    "id": "cqupt-ziwei",
+    "areaId": "cqupt",
+    "name": "紫薇餐馆",
+    "address": "重庆市南岸区崇文路76号附22号（二楼）",
+    "cuisine": "中餐",
+    "averagePrice": 42,
+    "priceSource": "https://www.dianping.com/shop/k8CXRWhwookhm48W",
+    "sourceUrl": "https://www.dianping.com/shop/k8CXRWhwookhm48W",
+    "checkedAt": "2026-10-25",
+    "spicyLevel": null,
+    "feedback": [
+      {
+        "sourceLabel": "大众点评",
+        "sourceUrl": "https://www.dianping.com/shop/k8CXRWhwookhm48W",
+        "checkedAt": "2026-10-25",
+        "rating": 4.1,
+        "reviewCount": 683,
+        "summary": "可见食客喜欢泡椒牛肉丝、肝腰合炒与豆花。",
+        "caution": "入口需进小巷上楼；有高峰人多、出餐慢的反馈。",
+        "spiceNote": "可见评价常提泡椒菜，不能吃辣应逐道询问。"
+      }
+    ],
+    "evidence": "2026-10-25通过用户已登录浏览器只读核实大众点评独立分店页：名称、地址、参考人均、评分和可见评价。堂食依据为门店设施、点菜/餐桌/店内体验记录。价格为平台参考值，评价只转述页面可见样本，不承诺即时营业或完整评论覆盖。"
+  }
+]
